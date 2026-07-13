@@ -1,0 +1,117 @@
+name: 'Claude Code'
+description: >-
+  Runs Claude Code in tag mode (@claude mentions) with Vaadin's shared
+  configuration: review-thread-scoped prompts, optional read-only reference
+  repository checkouts, a Playwright MCP server, a job summary of the session,
+  and an opt-in execution log artifact.
+
+inputs:
+  anthropic-api-key:
+    description: >-
+      Anthropic API key. Pass the repository secret, e.g.
+      secrets.ANTHROPIC_API_KEY.
+    required: true
+  reference-repos:
+    description: >-
+      Optional upstream repositories to provide as read-only context, one per
+      line in the form "owner/repo | description". Each repository is shallowly
+      cloned, added as an additional working directory, and described to Claude
+      in an appended system prompt (using the description verbatim).
+    required: false
+    default: ''
+  extra-allowed-tools:
+    description: >-
+      Repository-specific additions to the base tool allowlist (typically the
+      build and test commands of the repository). Comma- or newline-separated
+      entries in --allowedTools syntax, e.g. "Bash(mvn:*)".
+    required: false
+    default: ''
+  extra-system-prompt:
+    description: >-
+      Repository-specific instructions appended to the system prompt, after the
+      generated reference checkout section.
+    required: false
+    default: ''
+  playwright-mcp-version:
+    description: >-
+      Pinned version of the Playwright MCP server, for reproducible runs. The
+      MCP drives the runner's preinstalled Chrome (--browser chrome), so no
+      browser download is needed.
+    required: false
+    default: '0.0.77'
+  upload-execution-log:
+    description: >-
+      Set to 'true' to upload the full stream-json execution log as a workflow
+      artifact. Off by default because the log contains every tool_use with its
+      input and every tool_result, and on a public repository the artifact is
+      world-readable. Typically wired to a repository variable, e.g.
+      vars.CLAUDE_DEBUG.
+    required: false
+    default: 'false'
+
+outputs:
+  execution-file:
+    description: Path to the stream-json execution log of the run.
+    value: ${{ steps.claude.outputs.execution_file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare Claude run
+      id: prepare
+      shell: bash
+      env:
+        REFERENCE_REPOS: ${{ inputs.reference-repos }}
+        EXTRA_SYSTEM_PROMPT: ${{ inputs.extra-system-prompt }}
+        # Tools every repository gets: the Playwright MCP, non-destructive git
+        # commands plus the ones needed to commit to the PR branch, read-only
+        # gh commands for researching related PRs and issues, and read-only
+        # shell utilities. Build/test commands are repo-specific and come in
+        # through extra-allowed-tools.
+        BASE_ALLOWED_TOOLS: >-
+          mcp__playwright,
+          Bash(git status:*), Bash(git diff:*), Bash(git log:*),
+          Bash(git show:*), Bash(git branch:*), Bash(git fetch:*),
+          Bash(git add:*), Bash(git commit:*), Bash(git checkout:*),
+          Bash(git restore:*), Bash(git stash:*),
+          Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh issue view:*),
+          Bash(cd:*), Bash(ls:*), Bash(cat:*), Bash(find:*), Bash(grep:*),
+          Bash(rg:*), Bash(head:*), Bash(tail:*), Bash(sed:*), Bash(wc:*),
+          Bash(echo:*)
+        EXTRA_ALLOWED_TOOLS: ${{ inputs.extra-allowed-tools }}
+      run: node "$GITHUB_ACTION_PATH/prepare.mjs"
+
+    - name: Build Claude prompt
+      id: prompt
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/prompt.mjs"
+
+    - name: Run Claude Code
+      id: claude
+      uses: anthropics/claude-code-action@37b464ce72700f7b2c5ff8d2db7fa7b15df792f5 # v1.0.169
+      with:
+        anthropic_api_key: ${{ inputs.anthropic-api-key }}
+        # Setting a custom prompt would switch the action into agent mode
+        # track_progress forces tag mode back
+        track_progress: true
+        prompt: ${{ steps.prompt.outputs.prompt }}
+        additional_permissions: |
+          actions: read
+        settings: ${{ steps.prepare.outputs.settings }}
+        claude_args: |
+          ${{ steps.prepare.outputs.system_prompt_arg }}
+          --mcp-config '{"mcpServers":{"playwright":{"command":"npx","args":["@playwright/mcp@${{ inputs.playwright-mcp-version }}","--headless","--isolated","--browser","chrome"]}}}'
+          --allowedTools "${{ steps.prepare.outputs.allowed_tools }}"
+
+    - name: Summarize Claude session
+      if: always() && steps.claude.outputs.execution_file != ''
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/summary.mjs" "${{ steps.claude.outputs.execution_file }}"
+
+    - name: Upload Claude execution log
+      if: always() && inputs.upload-execution-log == 'true' && steps.claude.outputs.execution_file != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: claude-execution-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ steps.claude.outputs.execution_file }}
+        retention-days: 7
