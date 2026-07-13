@@ -1,0 +1,126 @@
+name: Reconcile @since tags
+description: >-
+  Reconcile Javadoc @since tags against a library's published release history.
+  Builds a "signature -> earliest continuous release" index from the -sources.jar
+  artifacts on Maven Central, then fills missing tags, fixes wrong ones, creates
+  minimal @since javadoc for undocumented types, and removes redundant tags.
+  Leaves the working tree modified for the caller to commit / open a PR.
+
+inputs:
+  group-id:
+    description: Maven groupId of the published artifacts (e.g. com.vaadin)
+    required: true
+  artifacts:
+    description: |
+      Newline-separated list of published modules, one per line. Each entry is
+      either just the artifact id (source root defaults to <artifact>/src/main/java)
+      or "<artifact>=<source-root>" when the layout differs, e.g.
+        flow-server
+        flow-data
+        my-addon=addons/my-addon/src/main/java
+    required: true
+  version:
+    description: Target version (blank = derive major.minor from the pom's project.version)
+    required: false
+    default: ""
+  formatter:
+    description: "auto | spotless | formatter | none — how to reformat touched files"
+    required: false
+    default: auto
+  filter:
+    description: "all | add | update — which changes to apply"
+    required: false
+    default: all
+  write:
+    description: "true to modify files; false for a dry run (reports only)"
+    required: false
+    default: "true"
+  index-dir:
+    description: >-
+      Where the built index is stored/cached. Give artifacts with an independent
+      version timeline (e.g. add-ons versioned separately from the core) their own
+      index-dir and a separate invocation, so their versions don't pollute the
+      shared axis.
+    required: false
+    default: .since-index
+
+outputs:
+  version:
+    description: The resolved target version
+    value: ${{ steps.ver.outputs.dev }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install jbang
+      shell: bash
+      run: |
+        curl -Ls https://sh.jbang.dev | bash -s - app setup
+        echo "$HOME/.jbang/bin" >> "$GITHUB_PATH"
+
+    # Cache keys: sources depend only on the published versions; the parsed index
+    # also depends on the tool. A new release changes META; a tool change changes TOOL.
+    - name: Compute cache keys
+      id: keys
+      shell: bash
+      run: |
+        g=$(echo "${{ inputs.group-id }}" | tr . /)
+        arts=$(echo "${{ inputs.artifacts }}" | sed 's/=.*//; s/#.*//' | tr -d '[:blank:]' | grep -v '^$')
+        META=$(for a in $arts; do
+                 curl -s --max-time 60 "https://repo1.maven.org/maven2/$g/$a/maven-metadata.xml"
+               done | sha256sum | cut -c1-16)
+        TOOL=$(sha256sum "$GITHUB_ACTION_PATH/SinceTool.java" | cut -c1-16)
+        echo "meta=$META" >> "$GITHUB_OUTPUT"
+        echo "tool=$TOOL" >> "$GITHUB_OUTPUT"
+
+    - name: Cache extracted sources
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ~/.cache/since-tags
+        key: since-tags-src-${{ steps.keys.outputs.meta }}
+        restore-keys: since-tags-src-
+
+    - name: Cache built index
+      id: idxcache
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ inputs.index-dir }}
+        key: since-tags-idx-${{ steps.keys.outputs.tool }}-${{ steps.keys.outputs.meta }}
+
+    - name: Determine target version
+      id: ver
+      shell: bash
+      run: |
+        DEV="${{ inputs.version }}"
+        if [ -z "$DEV" ]; then
+          MVN="mvn"; [ -x ./mvnw ] && MVN=./mvnw
+          V=$($MVN -q help:evaluate -Dexpression=project.version -DforceStdout)
+          DEV=$(echo "$V" | sed 's/-SNAPSHOT//' | awk -F. '{print $1"."$2}')
+        fi
+        echo "dev=$DEV" >> "$GITHUB_OUTPUT"
+        echo "Target version: $DEV"
+
+    - name: Reconcile @since
+      shell: bash
+      env:
+        GROUP: ${{ inputs.group-id }}
+        ARTIFACTS: ${{ inputs.artifacts }}
+        DEV: ${{ steps.ver.outputs.dev }}
+        FORMATTER: ${{ inputs.formatter }}
+        FILTER: ${{ inputs.filter }}
+        WRITE: ${{ inputs.write }}
+        INDEX_DIR: ${{ inputs.index-dir }}
+        SKIP_INDEX: ${{ steps.idxcache.outputs.cache-hit == 'true' && '1' || '0' }}
+      run: bash "$GITHUB_ACTION_PATH/run.sh"
+
+    - name: Job summary
+      shell: bash
+      run: |
+        {
+          echo "### @since reconciliation (version ${{ steps.ver.outputs.dev }})"
+          echo '```'
+          git diff --shortstat -- '*.java' || true
+          grep -hE '^(correct|fixed|filled|new in dev|removed|created javadoc|no javadoc)' "${{ inputs.index-dir }}"/report-*.md 2>/dev/null \
+            | awk -F: '{gsub(/[^0-9]/,"",$2); a[$1]+=$2} END{for(k in a) printf "%-26s %d\n", k, a[k]}' || true
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
