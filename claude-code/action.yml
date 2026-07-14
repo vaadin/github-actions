@@ -16,7 +16,7 @@ inputs:
       Optional upstream repositories to provide as read-only context, one per
       line in the form "owner/repo | description". Each repository is shallowly
       cloned, added as an additional working directory, and described to Claude
-      in an appended system prompt (using the description verbatim).
+      in injected project instructions (using the description verbatim).
     required: false
     default: ''
   extra-allowed-tools:
@@ -26,10 +26,11 @@ inputs:
       entries in --allowedTools syntax, e.g. "Bash(mvn:*)".
     required: false
     default: ''
-  extra-system-prompt:
+  extra-instructions:
     description: >-
-      Repository-specific instructions appended to the system prompt, after the
-      generated reference checkout section.
+      Repository-specific instructions for Claude, appended after the generated
+      reference checkout section. Injected as project instructions
+      (CLAUDE.local.md).
     required: false
     default: ''
   playwright-mcp-version:
@@ -62,7 +63,7 @@ runs:
       shell: bash
       env:
         REFERENCE_REPOS: ${{ inputs.reference-repos }}
-        EXTRA_SYSTEM_PROMPT: ${{ inputs.extra-system-prompt }}
+        EXTRA_INSTRUCTIONS: ${{ inputs.extra-instructions }}
         # Tools every repository gets: the Playwright MCP, non-destructive git
         # commands plus the ones needed to commit to the PR branch, read-only
         # gh commands for researching related PRs and issues, and read-only
@@ -79,7 +80,7 @@ runs:
           Bash(rg:*), Bash(head:*), Bash(tail:*), Bash(sed:*), Bash(wc:*),
           Bash(echo:*)
         EXTRA_ALLOWED_TOOLS: ${{ inputs.extra-allowed-tools }}
-      run: node "$GITHUB_ACTION_PATH/prepare.mjs"
+      run: node "$GITHUB_ACTION_PATH/../lib/claude-prepare.mjs"
 
     - name: Build Claude prompt
       id: prompt
@@ -88,7 +89,7 @@ runs:
 
     - name: Run Claude Code
       id: claude
-      uses: anthropics/claude-code-action@37b464ce72700f7b2c5ff8d2db7fa7b15df792f5 # v1.0.169
+      uses: anthropics/claude-code-action@a08f8913d58013599003b37d3a9174d27e99ac90 # v1.0.172
       with:
         anthropic_api_key: ${{ inputs.anthropic-api-key }}
         # Setting a custom prompt would switch the action into agent mode
@@ -99,14 +100,13 @@ runs:
           actions: read
         settings: ${{ steps.prepare.outputs.settings }}
         claude_args: |
-          ${{ steps.prepare.outputs.system_prompt_arg }}
           --mcp-config '{"mcpServers":{"playwright":{"command":"npx","args":["@playwright/mcp@${{ inputs.playwright-mcp-version }}","--headless","--isolated","--browser","chrome"]}}}'
           --allowedTools "${{ steps.prepare.outputs.allowed_tools }}"
 
     - name: Summarize Claude session
       if: always() && steps.claude.outputs.execution_file != ''
       shell: bash
-      run: node "$GITHUB_ACTION_PATH/summary.mjs" "${{ steps.claude.outputs.execution_file }}"
+      run: node "$GITHUB_ACTION_PATH/../lib/claude-summary.mjs" "${{ steps.claude.outputs.execution_file }}"
 
     - name: Upload Claude execution log
       if: always() && inputs.upload-execution-log == 'true' && steps.claude.outputs.execution_file != ''

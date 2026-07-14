@@ -11,7 +11,7 @@ repositories:
   on the PR.
 - **Reference repositories** — optionally clone upstream repositories
   read-only, expose them as additional working directories, and describe them
-  to Claude in an appended system prompt.
+  to Claude in injected project instructions.
 - **Playwright MCP** — a pinned Playwright MCP server driving the runner's
   preinstalled Chrome, for verifying UI behavior.
 - **Session summary** — outcome, turns, duration, cost, token usage, and any
@@ -37,7 +37,7 @@ runners, and callers typically set up Node explicitly anyway.
 | `anthropic-api-key` | yes | | Anthropic API key (pass `secrets.ANTHROPIC_API_KEY`). |
 | `reference-repos` | no | `''` | Upstream repositories to clone as read-only context, one `owner/repo \| description` per line. |
 | `extra-allowed-tools` | no | `''` | Repository-specific additions to the base tool allowlist, comma- or newline-separated, in `--allowedTools` syntax. |
-| `extra-system-prompt` | no | `''` | Repository-specific instructions appended to the system prompt. |
+| `extra-instructions` | no | `''` | Repository-specific instructions for Claude, injected as project instructions. |
 | `playwright-mcp-version` | no | `0.0.77` | Pinned Playwright MCP server version. |
 | `upload-execution-log` | no | `'false'` | Set `'true'` to upload the full execution log as an artifact (world-readable on public repositories). Typically wired to `vars.CLAUDE_DEBUG`. |
 

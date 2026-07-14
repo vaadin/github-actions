@@ -1,0 +1,174 @@
+name: 'Claude Code Review'
+description: >-
+  Reviews a pull request with Claude Code and posts the findings as a single
+  PR review: a prepare step pre-computes the review inputs (diff, metadata,
+  merge-base checkout), Claude runs a multi-agent review and reports findings
+  via the ReportFindings tool, and a posting step publishes them as inline
+  review threads with a summary.
+
+inputs:
+  anthropic-api-key:
+    description: >-
+      Anthropic API key. Pass the repository secret, e.g.
+      secrets.ANTHROPIC_API_KEY.
+    required: true
+  pr-number:
+    description: >-
+      Number of the pull request to review, computed by the caller from the
+      triggering event (e.g. github.event.issue.number ||
+      github.event.pull_request.number).
+    required: true
+  github-token:
+    description: >-
+      Token used to prepare the review inputs and post the review; its
+      identity is the review author. Pass a bot token to post under a bot
+      identity. Needs read access to the PR and pull-requests write for
+      posting.
+    required: false
+    default: ${{ github.token }}
+  reference-repos:
+    description: >-
+      Optional upstream repositories to provide as read-only context, one per
+      line in the form "owner/repo | description". Each repository is shallowly
+      cloned, added as an additional working directory, and described to Claude
+      in injected project instructions (using the description verbatim).
+    required: false
+    default: ''
+  extra-instructions:
+    description: >-
+      Repository-specific review instructions, appended after the generated
+      reference checkout section. Injected as project instructions
+      (CLAUDE.local.md).
+    required: false
+    default: ''
+  extra-allowed-tools:
+    description: >-
+      Repository-specific additions to the base tool allowlist. The base list
+      is read-only research tools; keep additions read-only too. Comma- or
+      newline-separated entries in --allowedTools syntax, e.g.
+      "Bash(mvn dependency:tree:*)".
+    required: false
+    default: ''
+  upload-execution-log:
+    description: >-
+      Set to 'true' to upload the full stream-json execution log as a workflow
+      artifact. Off by default because the log contains every tool_use with its
+      input and every tool_result, and on a public repository the artifact is
+      world-readable. Typically wired to a repository variable, e.g.
+      vars.CLAUDE_DEBUG.
+    required: false
+    default: 'false'
+
+outputs:
+  execution-file:
+    description: Path to the stream-json execution log of the run.
+    value: ${{ steps.claude.outputs.execution_file }}
+  findings-file:
+    description: >-
+      Path to the extracted findings JSON (the input of the last ReportFindings
+      call); empty when the run produced no report.
+    value: ${{ steps.findings.outputs.findings-file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare review scope
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: node "$GITHUB_ACTION_PATH/prepare-review.mjs" "${{ inputs.pr-number }}"
+
+    - name: Prepare Claude run
+      id: prepare
+      shell: bash
+      env:
+        REFERENCE_REPOS: ${{ inputs.reference-repos }}
+        EXTRA_INSTRUCTIONS: ${{ inputs.extra-instructions }}
+        # The review is read-only: research tools plus the Agent tool for the
+        # finder/verifier subagents and ReportFindings for the result. No
+        # write or commit tools. Repo-specific additions come in through
+        # extra-allowed-tools.
+        BASE_ALLOWED_TOOLS: >-
+          Agent, Task, ReportFindings,
+          Bash(git diff:*), Bash(git log:*), Bash(git show:*),
+          Bash(git blame:*), Bash(git status:*),
+          Bash(ls:*), Bash(cat:*), Bash(find:*), Bash(grep:*), Bash(rg:*),
+          Bash(head:*), Bash(tail:*), Bash(wc:*)
+        EXTRA_ALLOWED_TOOLS: ${{ inputs.extra-allowed-tools }}
+        EXTRA_ADDITIONAL_DIRECTORIES: |
+          ${{ runner.temp }}/pr-review
+          /tmp
+      run: node "$GITHUB_ACTION_PATH/../lib/claude-prepare.mjs"
+
+    - name: Build review prompt
+      id: build-prompt
+      shell: bash
+      run: |
+        {
+          echo 'prompt<<PROMPT_EOF'
+          sed "s|{{OVERVIEW_PATH}}|${{ runner.temp }}/pr-review/overview.md|" \
+            "$GITHUB_ACTION_PATH/review-prompt.md"
+          echo 'PROMPT_EOF'
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Run Claude Code review
+      id: claude
+      uses: anthropics/claude-code-action@a08f8913d58013599003b37d3a9174d27e99ac90 # v1.0.172
+      # CLAUDE_CODE_DISABLE_BACKGROUND_TASKS forces synchronous subagent
+      # dispatch. Without it the Agent tool may launch subagents in the
+      # background (nondeterministic, feature-flag driven); the headless
+      # session then ends while they are still running and the review is
+      # silently lost — job green, no findings reported. The CLI checks this
+      # variable directly in the dispatch decision, so with it set every
+      # subagent runs inline; batched Agent calls still run in parallel. A
+      # step-level env reaches the CLI because the base action spawns it with
+      # a copy of its own process env.
+      env:
+        CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
+      with:
+        anthropic_api_key: ${{ inputs.anthropic-api-key }}
+        settings: ${{ steps.prepare.outputs.settings }}
+        prompt: ${{ steps.build-prompt.outputs.prompt }}
+        claude_args: |
+          --allowedTools "${{ steps.prepare.outputs.allowed_tools }}"
+
+    - name: Post review
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+      run: node "$GITHUB_ACTION_PATH/post-review.mjs" "${{ inputs.pr-number }}"
+
+    - name: Summarize Claude session
+      if: always() && steps.claude.outputs.execution_file != ''
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/../lib/claude-summary.mjs" "${{ steps.claude.outputs.execution_file }}"
+
+    - name: Extract findings
+      id: findings
+      if: always() && steps.claude.outputs.execution_file != ''
+      shell: bash
+      run: |
+        if jq -e '[.[] | select(.type == "assistant") | .message.content[]?
+                   | select(.type == "tool_use" and .name == "ReportFindings") | .input] | last' \
+          "${{ steps.claude.outputs.execution_file }}" > "${{ runner.temp }}/findings.json"; then
+          echo "findings-file=${{ runner.temp }}/findings.json" >> "$GITHUB_OUTPUT"
+        else
+          rm -f "${{ runner.temp }}/findings.json"
+        fi
+
+    - name: Upload findings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: code-review-findings-pr${{ inputs.pr-number }}-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ runner.temp }}/findings.json
+        if-no-files-found: ignore
+
+    - name: Upload Claude execution log
+      if: always() && inputs.upload-execution-log == 'true' && steps.claude.outputs.execution_file != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: code-review-execution-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ steps.claude.outputs.execution_file }}
+        retention-days: 7
