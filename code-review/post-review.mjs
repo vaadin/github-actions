@@ -2,12 +2,11 @@
 /**
  * Post the code-review findings to the PR as one review.
  *
- * Runs in the code-review action as a plain step, after the claude-code-action
- * step. Reads the action's execution file and takes the input of the last
- * ReportFindings tool call. No ReportFindings call at all means the review was lost
- * (background-subagent failure mode): the script exits non-zero instead of
- * posting, so a lost review is never mistaken for a clean one. An empty
- * findings array is a real result and posts a body-only "no findings" review.
+ * Runs in the code-review action as a plain step, after run-review.mjs. Reads
+ * the findings file that step wrote: the curated findings at or above the
+ * value bar. run-review.mjs fails the job when the review session is lost, so
+ * this step only ever sees a real result. An empty findings array is a real
+ * result and posts a body-only "no findings" review.
  *
  * Every finding is posted as its own inline review thread, demoted
  * line-level → file-level → summary list as anchoring fails. The summary body
@@ -19,7 +18,9 @@
  *
  * Reads from the environment (set by GitHub Actions):
  *   PR_NUMBER / argv[2]  pull request number reviewed
- *   EXECUTION_FILE       JSON transcript of the review run
+ *   FINDINGS_FILE        findings JSON written by run-review.mjs
+ *                        ({findings: [...]}); each finding has file, line,
+ *                        summary, explanation, category, judgement, value
  *   GITHUB_REPOSITORY    owner/repo
  *   GH_TOKEN             token for the gh CLI; its identity is the review
  *                        author
@@ -62,47 +63,22 @@ function graphql(query, variables = {}) {
   return JSON.parse(capture('gh', args)).data;
 }
 
-// The action writes the execution file as a single JSON array of events.
-function readEvents(executionFile) {
-  const events = JSON.parse(fs.readFileSync(executionFile, 'utf8'));
-  if (!Array.isArray(events)) {
-    throw new Error('Execution file is not a JSON array of events');
-  }
-  return events;
-}
-
-// The input of the last ReportFindings tool_use in the transcript.
-function extractReport(executionFile) {
-  let report = null;
-  for (const event of readEvents(executionFile)) {
-    if (event.type !== 'assistant') continue;
-    for (const block of event.message?.content ?? []) {
-      if (block.type === 'tool_use' && block.name === 'ReportFindings') {
-        report = block.input;
-      }
-    }
-  }
-  return report;
-}
-
 function normalize(finding) {
   return {
     ...finding,
     category: (finding.category || 'uncategorized').toLowerCase(),
-    verdict: (finding.verdict || 'plausible').toLowerCase(),
   };
 }
 
 // --- Rendering ------------------------------------------------------------
 // Every finding starts with a category emoji on the title and ends in the
-// same meta line: file link, category, verdict.
+// same meta line: file link, category.
 
 const CATEGORY_EMOJI = {
   correctness: '⚠️',
-  simplification: '🧹',
-  reuse: '🧹',
-  conventions: '🧹',
-  efficiency: '⚡',
+  documentation: '📝',
+  tests: '🧪',
+  conventions: '📐',
 };
 
 function categoryEmoji(finding) {
@@ -142,19 +118,15 @@ function fileLink(repo, headSha, finding) {
 }
 
 function findingMeta(repo, headSha, finding) {
-  const meta = [
-    fileLink(repo, headSha, finding),
-    `\`${finding.category}\``,
-    `\`${finding.verdict}\``,
-  ]
+  const meta = [fileLink(repo, headSha, finding), `\`${finding.category}\``]
     .filter(Boolean)
     .join(' · ');
   return `<sub>${meta}</sub>`;
 }
 
 function findingBlock(repo, headSha, finding) {
-  const scenario = (finding.failure_scenario || '').trim();
-  return [findingTitle(finding), scenario, findingMeta(repo, headSha, finding)]
+  const explanation = (finding.explanation || '').trim();
+  return [findingTitle(finding), explanation, findingMeta(repo, headSha, finding)]
     .filter(Boolean)
     .join('\n');
 }
@@ -166,7 +138,7 @@ function threadBody(repo, headSha, finding, { aroundLine } = {}) {
   }
   parts.push(
     findingTitle(finding),
-    finding.failure_scenario || '',
+    finding.explanation || '',
     findingMeta(repo, headSha, finding)
   );
   return parts.filter(Boolean).join('\n\n');
@@ -316,16 +288,9 @@ function main() {
     process.exit(2);
   }
   const repo = requireEnv('GITHUB_REPOSITORY');
-  const executionFile = requireEnv('EXECUTION_FILE');
+  const findingsFile = requireEnv('FINDINGS_FILE');
 
-  const report = extractReport(executionFile);
-  if (!report) {
-    console.error(
-      'No ReportFindings call in the execution file — the review was lost; refusing to post.'
-    );
-    process.exit(1);
-  }
-  const findings = (Array.isArray(report.findings) ? report.findings : []).map(normalize);
+  const findings = JSON.parse(fs.readFileSync(findingsFile, 'utf8')).findings.map(normalize);
   console.log(`Findings: ${findings.length} total`);
 
   if (process.env.DRY_RUN) {

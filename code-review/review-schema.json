@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "file": { "type": "string" },
+          "line": { "type": ["integer", "null"] },
+          "summary": { "type": "string" },
+          "explanation": { "type": "string" },
+          "category": { "type": "string" },
+          "judgement": { "type": "string" },
+          "value": { "type": "string", "enum": ["high", "medium", "low"] }
+        },
+        "required": ["file", "line", "summary", "explanation", "category", "judgement", "value"]
+      }
+    }
+  },
+  "required": ["findings"]
+}
