@@ -1,23 +1,49 @@
 # code-review
 
-Composite action that reviews a pull request with
-[Claude Code](https://github.com/anthropics/claude-code-action) and posts the
-findings as a single PR review:
+Composite action that reviews a pull request with a single headless
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) session and
+posts the findings as a single PR review:
 
 1. **Prepare** — pre-computes everything the review needs so the review agent
    never has to derive it: the PR diff exactly as GitHub renders it, the
-   changed-file list, the PR metadata, and a merge-base worktree (the
-   pre-change state), all named by absolute path in an overview file.
-2. **Review** — Claude runs a phased multi-agent review and reports the
-   result via a `ReportFindings` tool call.
-3. **Post** — the findings are posted as one review: each finding as an inline
-   review thread (demoted line-level → file-level → summary list as anchoring
-   fails) plus a summary body with an overview line and a table over all
+   changed-file list, the PR metadata, a merge-base worktree (the pre-change
+   state), and the PR's existing reviews, all named by absolute path in an
+   inputs file that is inlined into the review prompt.
+2. **Review** — one read-only Claude Code session reviews the changes against
+   four areas (correctness, documentation, tests, conventions), writes a
+   free-text judgement per finding, grades each finding's `value`
+   (`high` / `medium` / `low`), and reports once as structured output.
+3. **Select & post** — selection is mechanical: findings at or above the
+   value bar are posted as one review — each finding as an inline review
+   thread (demoted line-level → file-level → summary list as anchoring
+   fails) plus a summary body with an overview line and a table. The agent
+   never hears which tiers ship, so it has no incentive to inflate borderline
    findings.
 
+A markdown summary of **every** finding — posted and withheld, each with the
+agent's judgement — is uploaded as a workflow artifact on every run, so the
+pipeline's selection behavior can be reviewed independently of what reached
+the PR.
+
+The review session runs the Claude Code CLI directly (pinned in
+[action.yml](action.yml)); the session is read-only via `--tools`
+(Read/Grep/Glob/Bash only — no write, subagent, or web tools), with a
+read-only Bash command allowlist that is also advertised to the agent.
+
 Shared with the [`claude-code`](../claude-code/) action: optional read-only
-reference repository checkouts, instruction injection, the session job
-summary, and the opt-in execution log artifact.
+reference repository checkouts, instruction injection, and the session job
+summary.
+
+## Tuning
+
+Deliberately hard-coded, each a one-line edit:
+
+| Constant | Where | Value |
+|---|---|---|
+| Model | `MODEL` in [run-review.mjs](run-review.mjs) | `claude-opus-5` |
+| Value bar (minimum tier posted) | `VALUE_BAR` in [run-review.mjs](run-review.mjs) | `medium` |
+| Session timeout | `SESSION_TIMEOUT_MS` in [run-review.mjs](run-review.mjs) | 30 min |
+| Claude Code version | Install step in [action.yml](action.yml) | pinned exact |
 
 ## Requirements
 
@@ -29,9 +55,8 @@ The calling workflow must, before invoking this action:
 - **Set up Node** (≥ 20; preinstalled on GitHub runners, but callers typically
   pin a version).
 
-The job needs `pull-requests: write` (post the review), `issues: write` (if
-the caller reacts to the trigger comment), and `id-token: write` (used by
-anthropics/claude-code-action).
+The job needs `pull-requests: write` (post the review) and `issues: write`
+(if the caller reacts to the trigger comment).
 
 ## Inputs
 
@@ -42,15 +67,16 @@ anthropics/claude-code-action).
 | `github-token` | no | `github.token` | Token used to prepare the review inputs and post the review; its identity is the review author. Pass a bot token to post under a bot identity. |
 | `reference-repos` | no | `''` | Upstream repositories to clone as read-only context, one `owner/repo \| description` per line. |
 | `extra-instructions` | no | `''` | Repository-specific review instructions, injected as project instructions. |
-| `extra-allowed-tools` | no | `''` | Read-only additions to the base tool allowlist, comma- or newline-separated, in `--allowedTools` syntax. |
+| `extra-allowed-tools` | no | `''` | Read-only additions to the Bash auto-approve allowlist, comma- or newline-separated, in `--allowedTools` syntax. |
 | `upload-execution-log` | no | `'false'` | Set `'true'` to upload the full execution log as an artifact (world-readable on public repositories). Typically wired to `vars.CLAUDE_DEBUG`. |
 
-## Outputs
+## Artifacts
 
-| Output | Description |
-|---|---|
-| `execution-file` | Path to the stream-json execution log of the run. |
-| `findings-file` | Path to the extracted findings JSON (the input of the last `ReportFindings` call); empty when the run produced no report. The same file is uploaded as a workflow artifact. |
+- `code-review-findings-pr<N>-…` — the findings summary markdown, uploaded on
+  every run: every reported finding with location, category, value tier,
+  summary, explanation, and judgement, grouped into posted / withheld.
+- `code-review-execution-…` — the full execution log, only when
+  `upload-execution-log` is `'true'`.
 
 ## Example caller workflow
 
@@ -97,7 +123,6 @@ jobs:
       contents: read
       issues: write
       pull-requests: write
-      id-token: write
     steps:
       - name: React to trigger
         env:
