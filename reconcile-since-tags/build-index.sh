@@ -18,6 +18,14 @@
 #    breaks before reaching the backport;
 #  - a pre-release introduction -> bare minor X.Y.
 #
+# EVERY listed release must actually make it into the index. Presence is recorded
+# per artifact, but the apply step derives @since over a release axis shared by
+# all indexed artifacts, so a release that silently fails to download reads as
+# "this artifact's whole API did not exist yet": the streak restarts after the
+# hole and every type in the module is re-dated to the next release. Downloads
+# are therefore retried, and a release that still cannot be fetched or extracted
+# aborts the build instead of leaving a gap.
+#
 # Extracted sources are cached under $SINCE_CACHE (default ~/.cache/since-tags),
 # keyed by exact version (immutable), and reused across runs and repositories.
 set -euo pipefail
@@ -33,13 +41,45 @@ BASE="https://repo1.maven.org/maven2/$(echo "$GROUP" | tr . /)/$ART"
 
 ROOT="$CACHE/$GROUP/$ART"
 SRC="$ROOT/src"
+ATTEMPTS="${SINCE_FETCH_ATTEMPTS:-4}"   # tries per download, including the first
+DELAY="${SINCE_FETCH_DELAY:-3}"         # seconds before the first retry, doubled after each
 mkdir -p "$SRC" "$OUTDIR"
+
+# fetch <url> <outFile> [maxSecondsPerAttempt]
+# Retries transient failures (connection errors, timeouts, 429, 5xx) with
+# exponential backoff, logging every attempt so a flaky release is visible in the
+# job log. A 404 is permanent and is not retried. Returns 1 if the file could not
+# be fetched, leaving no output file behind.
+fetch() {
+  local url="$1" out="$2" maxtime="${3:-180}" attempt=1 delay="$DELAY" code
+  while :; do
+    code=$(curl -sS --max-time "$maxtime" -o "$out" -w '%{http_code}' "$url" 2>/dev/null) || code=000
+    if [ "$code" = 200 ]; then return 0; fi
+    rm -f "$out"
+    if [ "$code" = 404 ] || [ "$attempt" -ge "$ATTEMPTS" ]; then
+      echo "[build-index] GET $url -> $code (gave up after $attempt attempt(s))" >&2
+      return 1
+    fi
+    echo "[build-index] GET $url -> $code, retrying in ${delay}s (attempt $attempt/$ATTEMPTS)" >&2
+    sleep "$delay"; delay=$((delay * 2)); attempt=$((attempt + 1))
+  done
+}
+
+# Abort rather than index an incomplete release history -- see the header note.
+die() {
+  echo "[build-index] FATAL: $GROUP:$ART $*" >&2
+  echo "[build-index] Refusing to build a partial index: a missing release silently re-dates" >&2
+  echo "[build-index] @since for every type in the module. Re-run to retry -- releases already" >&2
+  echo "[build-index] downloaded stay cached." >&2
+  exit 1
+}
 
 echo "[build-index] $GROUP:$ART  cache=$ROOT"
 
 # 1. metadata -> the versions to index: every stable patch (baseline-filtered),
 #    plus the latest pre-release of the highest minor if that minor has no GA yet.
-curl -sf --max-time 60 "$BASE/maven-metadata.xml" -o "$ROOT/maven-metadata.xml"
+fetch "$BASE/maven-metadata.xml" "$ROOT/maven-metadata.xml" 60 \
+  || die "could not download maven-metadata.xml"
 allvers=$(grep -oE '<version>[0-9]+\.[0-9]+\.[0-9]+[^<]*</version>' "$ROOT/maven-metadata.xml" \
   | sed -E 's/<\/?version>//g' | awk -F. -v b="$BASELINE" '($1+0)>=(b+0)' | sort -V)
 stable=$(echo "$allvers" | grep -vE '\-|\.(alpha|beta|rc)' || true)   # exclude pre-releases (both 25.2.0-rc2 and ancient 2.2.0.alpha11 styles)
@@ -52,19 +92,24 @@ if ! echo "$stable" | awk -F. -v t="$highminor" '($1"."$2)==t{f=1} END{exit !f}'
 fi
 echo "[build-index] indexing $(echo "$tolist" | grep -c .) releases ($(echo "$tolist" | tail -1) latest)"
 
-# 2. download + extract each (cache keyed by exact version)
-echo "$tolist" | while read -r v; do
+# 2. download + extract each (cache keyed by exact version). Fed by a here-string
+#    rather than a pipe so the loop runs in this shell and die() aborts the script.
+while read -r v; do
   [ -z "$v" ] && continue
   d="$SRC/$v"
   [ -f "$d/.ok" ] && continue
   rm -rf "$d"; mkdir -p "$d"
-  if curl -sf --max-time 180 "$BASE/$v/$ART-$v-sources.jar" -o "$ROOT/s.jar"; then
-    ( cd "$d" && unzip -oq "$ROOT/s.jar" ) && touch "$d/.ok" || { echo "[build-index] extract FAILED $v"; rm -rf "$d"; }
-    rm -f "$ROOT/s.jar"
-  else
-    rm -rf "$d"; echo "[build-index] no sources for $v"
+  if ! fetch "$BASE/$v/$ART-$v-sources.jar" "$ROOT/s.jar"; then
+    rm -rf "$d"
+    die "no sources jar for $v"
   fi
-done
+  if ! ( cd "$d" && unzip -oq "$ROOT/s.jar" ); then
+    rm -rf "$d" "$ROOT/s.jar"
+    die "sources jar for $v could not be extracted"
+  fi
+  rm -f "$ROOT/s.jar"
+  touch "$d/.ok"
+done <<< "$tolist"
 
 # 3. build the index over every cached version dir
 jbang "$HERE/SinceTool.java" index "$SRC" "$OUTDIR/$ART.tsv"
