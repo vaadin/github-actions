@@ -66,8 +66,12 @@ runs:
       run: |
         g=$(echo "${{ inputs.group-id }}" | tr . /)
         arts=$(echo "${{ inputs.artifacts }}" | sed 's/=.*//; s/#.*//' | tr -d '[:blank:]' | grep -v '^$')
+        # A silently-failed metadata fetch would hash an empty/error body into the
+        # cache key, so retry and fail the step rather than key the cache on garbage.
         META=$(for a in $arts; do
-                 curl -s --max-time 60 "https://repo1.maven.org/maven2/$g/$a/maven-metadata.xml"
+                 curl -sS --fail --max-time 60 --retry 4 --retry-delay 2 \
+                   --retry-all-errors --retry-connrefused \
+                   "https://repo1.maven.org/maven2/$g/$a/maven-metadata.xml"
                done | sha256sum | cut -c1-16)
         TOOL=$(sha256sum "$GITHUB_ACTION_PATH/SinceTool.java" | cut -c1-16)
         echo "meta=$META" >> "$GITHUB_OUTPUT"

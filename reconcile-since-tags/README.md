@@ -123,7 +123,14 @@ working tree, so one `create-pull-request` picks up all the changes:
   platform version).
 - Artifacts on a different version scheme must be run as a separate invocation —
   don't mix timelines in one `artifacts` list.
-- The library must publish `-sources.jar` artifacts.
+- The library must publish `-sources.jar` artifacts, and **every** listed release
+  must be downloadable. A release that still cannot be fetched or unpacked after
+  retries fails the run instead of leaving a hole in the index: presence is per
+  artifact but the release axis is shared, so a hole reads as "this artifact's API
+  did not exist yet" and re-dates `@since` for every type in that module to the
+  release after the hole. Retries are tunable via the `SINCE_FETCH_ATTEMPTS`
+  (default `4`) and `SINCE_FETCH_DELAY` (default `3` seconds, doubled per attempt)
+  environment variables.
 
 ## Contents
 
