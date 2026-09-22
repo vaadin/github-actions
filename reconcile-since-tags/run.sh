@@ -66,6 +66,20 @@ else
   for a in "${arts[@]}"; do bash "$HERE/build-index.sh" "$GROUP" "$a" "$IDX"; done
 fi
 
+# An index with no entries is not "nothing to do": @since is derived from the run
+# of releases an element is present in, so an empty axis reads as "none of this API
+# has ever been released" and the apply step re-dates every type in the module to
+# $DEV and strips its member tags. That happens whenever an artifact publishes no
+# usable -sources.jar at all, so check before touching the working tree.
+for a in "${arts[@]}"; do
+  [ -s "$IDX/$a.tsv" ] || {
+    echo "[since] FATAL: empty index for $a ($IDX/$a.tsv)" >&2
+    echo "[since] No released sources were indexed -- check that $GROUP:$a publishes" >&2
+    echo "[since] -sources.jar artifacts. Refusing to reconcile against an empty index." >&2
+    exit 1
+  }
+done
+
 # 2. Apply per source root.
 mode="dry"; [ "$WRITE" = "true" ] && mode="write"
 mods=""
