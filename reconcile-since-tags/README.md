@@ -51,7 +51,9 @@ explicit `<artifact>=<source-root>` form.
   artifact list, so several invocations in one repository (a matrix of one artifact
   per shard, or a separately-versioned module with its own `index-dir`) keep
   separate caches instead of restoring and then re-saving each other's sources.
-  Sources are only stored when they were actually downloaded.
+  Sources are only stored when they were actually downloaded, and a run that
+  failed part-way through a long history keeps what it did download under its own
+  key, so the re-run continues instead of starting over.
 - **Built index** (`.since-index`), keyed by metadata **+** the tool hash — when it
   hits, the run skips download *and* parsing and just applies.
 

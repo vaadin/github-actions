@@ -23,6 +23,10 @@ WRITE="${WRITE:-true}"
 IDX="$PWD/${INDEX_DIR:-.since-index}"
 MVN="mvn"; [ -x ./mvnw ] && MVN=./mvnw
 mkdir -p "$IDX"
+# The caller (action.yml) caches the download cache directory, including after a
+# failed run, so create it up front: a run that dies before the first download
+# would otherwise have nothing to save and lose the sources it did fetch earlier.
+mkdir -p "${SINCE_CACHE:-$HOME/.cache/since-tags}"
 
 # Parse ARTIFACTS into parallel arrays of artifact + source-root. Each entry is
 # either just "<artifact>" (source root defaults to <artifact>/src/main/java) or
