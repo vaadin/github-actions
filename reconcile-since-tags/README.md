@@ -31,6 +31,11 @@ The action only edits the working tree (and formats the files it touched). It do
 
 Output: `version` — the resolved target version.
 
+Source roots are resolved relative to the repository root and must exist: a root
+that is not there fails the run instead of silently reconciling nothing. Modules
+whose directory is not named after the published artifact therefore need the
+explicit `<artifact>=<source-root>` form.
+
 > **One `artifacts` list == one shared version timeline.** The index merges every
 > artifact's presence sets onto a single version axis (so classes that move between
 > modules are tracked). That's only correct when the modules release on the *same*

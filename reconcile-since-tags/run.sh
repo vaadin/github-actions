@@ -37,6 +37,27 @@ while IFS= read -r line; do
 done <<< "$ARTIFACTS"
 [ "${#arts[@]}" -gt 0 ] || { echo "no artifacts configured"; exit 1; }
 
+# A source root that does not exist means the entry is misconfigured -- usually
+# the module directory is not named after the published artifact, so the default
+# "<artifact>/src/main/java" points nowhere. Reconciling nothing is indistinguishable
+# from "already up to date": the caller sees a green run and an empty diff. Check
+# every root up front (before the expensive index build) and abort instead.
+missing=()
+for i in "${!arts[@]}"; do
+  [ -d "${srcs[$i]}" ] || missing+=("${arts[$i]} -> ${srcs[$i]}")
+done
+if [ "${#missing[@]}" -gt 0 ]; then
+  {
+    echo "[since] FATAL: source root does not exist for:"
+    printf '[since]   %s\n' "${missing[@]}"
+    echo "[since] Source roots are relative to the repository root and default to"
+    echo "[since] '<artifact>/src/main/java'. When the module directory is not named"
+    echo "[since] after the published artifact, spell the root out in the artifacts"
+    echo "[since] list as '<artifact>=<source-root>'."
+  } >&2
+  exit 1
+fi
+
 # 1. Build the index (downloads cached under ~/.cache/since-tags), unless a valid
 #    cached index was restored.
 if [ "${SKIP_INDEX:-0}" = "1" ] && ls "$IDX"/*.tsv >/dev/null 2>&1; then
@@ -50,7 +71,6 @@ mode="dry"; [ "$WRITE" = "true" ] && mode="write"
 mods=""
 for i in "${!arts[@]}"; do
   src="${srcs[$i]}"
-  [ -d "$src" ] || { echo "[since] skip ${arts[$i]} (no $src)"; continue; }
   jbang "$TOOL" apply "$src" "$IDX" "$DEV" "$mode" "$IDX/report-${arts[$i]}.md" "$FILTER"
   m="${src%%/src/*}"; [ "$m" != "$src" ] && mods="$mods,$m"   # module dir for -pl
 done
