@@ -9,7 +9,7 @@ inputs:
     description: >-
       PAT or app token with contents, pull-requests and issues write access on
       the repository and read access to vaadin/platform-build-script, e.g.
-      secrets.GHTK. The workflow GITHUB_TOKEN is not enough: pull requests
+      secrets.CHERRY_PICK_TOKEN. The workflow GITHUB_TOKEN is not enough: pull requests
       opened with it do not trigger CI.
     required: true
   anthropic-api-key:
@@ -49,9 +49,15 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Check checkout
+    - name: Check inputs and checkout
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
+        if [ -z "$GITHUB_TOKEN" ]; then
+          echo "::error::github-token is empty. If it is passed from an organization secret, check that the secret is available to this repository."
+          exit 1
+        fi
         if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
           echo "::error::Check out the repository with fetch-depth: 0"
           exit 1
@@ -67,11 +73,25 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         SCRIPT_REF: ${{ inputs.script-ref }}
       run: |
-        curl -fsSL \
+        status=$(curl -sSL -w '%{http_code}' \
           -H "Authorization: token $GITHUB_TOKEN" \
           -H "Accept: application/vnd.github.raw" \
           "https://api.github.com/repos/vaadin/platform-build-script/contents/scripts/cherryPick.js?ref=$SCRIPT_REF" \
-          -o "$RUNNER_TEMP/cherryPick.js"
+          -o "$RUNNER_TEMP/cherryPick.js")
+        case "$status" in
+          200)
+            ;;
+          401|403|404)
+            # GitHub answers 404 rather than 403 for a private repository the
+            # token cannot see.
+            echo "::error::github-token cannot read scripts/cherryPick.js from vaadin/platform-build-script at ref '$SCRIPT_REF' (HTTP $status). Check that the token's account has access to that private repository, that a fine-grained token includes it, and that the ref exists."
+            exit 1
+            ;;
+          *)
+            echo "::error::Downloading the cherry-pick script failed with HTTP $status: $(cat "$RUNNER_TEMP/cherryPick.js")"
+            exit 1
+            ;;
+        esac
 
     - name: Install Claude Code
       if: inputs.anthropic-api-key != '' && inputs.dry-run != 'true'

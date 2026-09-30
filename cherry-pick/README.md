@@ -34,11 +34,30 @@ The calling workflow must, before invoking this action:
 `git`, `curl` and `node` (≥ 20) must be on the `PATH`; all are preinstalled on
 GitHub runners.
 
+## Token
+
+`github-token` reads the script from `vaadin/platform-build-script`, pushes the
+pick branches, opens the pull requests and labels them. It cannot be the
+workflow `GITHUB_TOKEN`: pull requests opened with it do not trigger CI, and it
+cannot read another private repository.
+
+- **Classic PAT:** the `repo` scope, plus `workflow` so that picks touching
+  `.github/workflows/` can be pushed.
+- **Fine-grained PAT or GitHub App:** repository access to
+  `vaadin/platform-build-script` and every repository using the action, with
+  Contents, Pull requests, Issues and Workflows set to read and write.
+
+The token's account needs write access to the calling repository and read
+access to `vaadin/platform-build-script`, and branch rules must allow it to
+push `cherry-pick-*` branches. When the token comes from an organization
+secret, the secret's repository access has to include the calling repository;
+otherwise the input is empty.
+
 ## Inputs
 
 | Input | Required | Default | Description |
 |---|---|---|---|
-| `github-token` | yes | | PAT or app token with contents, pull-requests and issues write access, and read access to `vaadin/platform-build-script` (pass `secrets.GHTK`). |
+| `github-token` | yes | | PAT or app token with contents, pull-requests and issues write access, and read access to `vaadin/platform-build-script` (pass `secrets.CHERRY_PICK_TOKEN`). |
 | `anthropic-api-key` | no | `''` | Anthropic API key. When empty, conflicts are labelled for manual picking. |
 | `verify-instructions` | no | `''` | How Claude tests and formats the resolved changes in this repository. |
 | `extra-allowed-tools` | no | `''` | Additions to the tool allowlist needed by the verify instructions, comma- or newline-separated, in `--allowedTools` syntax. |
@@ -98,7 +117,7 @@ jobs:
         env:
           MAVEN_ARGS: -ntp -B
         with:
-          github-token: ${{ secrets.GHTK }}
+          github-token: ${{ secrets.CHERRY_PICK_TOKEN }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           dry-run: ${{ inputs.dry-run || false }}
           verify-instructions: |
