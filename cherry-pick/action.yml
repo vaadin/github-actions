@@ -1,0 +1,97 @@
+name: 'Cherry Pick'
+description: >-
+  Cherry-picks merged pull requests labelled target/<branch> to the target
+  branches and opens a pull request per pick. Merge conflicts are resolved by
+  Claude Code; picks that cannot be completed are labelled for manual picking.
+
+inputs:
+  github-token:
+    description: >-
+      PAT or app token with contents, pull-requests and issues write access on
+      the repository and read access to vaadin/platform-build-script, e.g.
+      secrets.GHTK. The workflow GITHUB_TOKEN is not enough: pull requests
+      opened with it do not trigger CI.
+    required: true
+  anthropic-api-key:
+    description: >-
+      Anthropic API key, e.g. secrets.ANTHROPIC_API_KEY. When empty, conflicting
+      picks are labelled for manual picking instead of being resolved by Claude.
+    required: false
+    default: ''
+  verify-instructions:
+    description: >-
+      Repository-specific instructions for how Claude tests and formats the
+      resolved changes (build, test and formatter commands).
+    required: false
+    default: ''
+  extra-allowed-tools:
+    description: >-
+      Repository-specific additions to the tool allowlist needed by the verify
+      instructions. Comma- or newline-separated entries in --allowedTools
+      syntax, e.g. "Bash(mvn:*)".
+    required: false
+    default: ''
+  dry-run:
+    description: >-
+      Set to 'true' to try the cherry-picks and log the outcome without running
+      Claude, pushing, opening pull requests or changing labels.
+    required: false
+    default: 'false'
+  lookback-days:
+    description: How far back to look for merged pull requests.
+    required: false
+    default: '30'
+  script-ref:
+    description: Ref of vaadin/platform-build-script to take the cherry-pick script from.
+    required: false
+    default: main
+
+runs:
+  using: composite
+  steps:
+    - name: Check checkout
+      shell: bash
+      run: |
+        if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+          echo "::error::Check out the repository with fetch-depth: 0"
+          exit 1
+        fi
+        if git config --get-regexp '^http\..*\.extraheader' > /dev/null; then
+          echo "::error::Check out the repository with persist-credentials: false so Claude cannot push"
+          exit 1
+        fi
+
+    - name: Download cherry-pick script
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        SCRIPT_REF: ${{ inputs.script-ref }}
+      run: |
+        curl -fsSL \
+          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github.raw" \
+          "https://api.github.com/repos/vaadin/platform-build-script/contents/scripts/cherryPick.js?ref=$SCRIPT_REF" \
+          -o "$RUNNER_TEMP/cherryPick.js"
+
+    - name: Install Claude Code
+      if: inputs.anthropic-api-key != '' && inputs.dry-run != 'true'
+      shell: bash
+      run: npm install -g @anthropic-ai/claude-code
+
+    - name: Configure git
+      shell: bash
+      run: |
+        git config user.name > /dev/null || git config user.name "github-actions[bot]"
+        git config user.email > /dev/null || git config user.email "41898233+github-actions[bot]@users.noreply.github.com"
+
+    - name: Cherry-pick labelled pull requests
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        CHERRY_PICK_USE_CLAUDE: ${{ inputs.anthropic-api-key != '' }}
+        CHERRY_PICK_VERIFY_INSTRUCTIONS: ${{ inputs.verify-instructions }}
+        CHERRY_PICK_ALLOWED_TOOLS: ${{ inputs.extra-allowed-tools }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        LOOKBACK_DAYS: ${{ inputs.lookback-days }}
+      run: node "$RUNNER_TEMP/cherryPick.js"
