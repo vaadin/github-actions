@@ -9,7 +9,7 @@ inputs:
     description: >-
       PAT or app token with contents, pull-requests and issues write access on
       the repository and read access to vaadin/platform-build-script, e.g.
-      secrets.GHTK. The workflow GITHUB_TOKEN is not enough: pull requests
+      secrets.CHERRY_PICK_TOKEN. The workflow GITHUB_TOKEN is not enough: pull requests
       opened with it do not trigger CI.
     required: true
   anthropic-api-key:

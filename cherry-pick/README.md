@@ -57,7 +57,7 @@ otherwise the input is empty.
 
 | Input | Required | Default | Description |
 |---|---|---|---|
-| `github-token` | yes | | PAT or app token with contents, pull-requests and issues write access, and read access to `vaadin/platform-build-script` (pass `secrets.GHTK`). |
+| `github-token` | yes | | PAT or app token with contents, pull-requests and issues write access, and read access to `vaadin/platform-build-script` (pass `secrets.CHERRY_PICK_TOKEN`). |
 | `anthropic-api-key` | no | `''` | Anthropic API key. When empty, conflicts are labelled for manual picking. |
 | `verify-instructions` | no | `''` | How Claude tests and formats the resolved changes in this repository. |
 | `extra-allowed-tools` | no | `''` | Additions to the tool allowlist needed by the verify instructions, comma- or newline-separated, in `--allowedTools` syntax. |
@@ -117,7 +117,7 @@ jobs:
         env:
           MAVEN_ARGS: -ntp -B
         with:
-          github-token: ${{ secrets.GHTK }}
+          github-token: ${{ secrets.CHERRY_PICK_TOKEN }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           dry-run: ${{ inputs.dry-run || false }}
           verify-instructions: |
