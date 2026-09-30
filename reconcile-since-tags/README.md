@@ -47,7 +47,13 @@ explicit `<artifact>=<source-root>` form.
 ## What it caches
 
 - **Sources** (`~/.cache/since-tags`), keyed by the artifacts' Maven metadata —
-  no re-download when nothing was released.
+  no re-download when nothing was released. The key is scoped to the invocation's
+  artifact list, so several invocations in one repository (a matrix of one artifact
+  per shard, or a separately-versioned module with its own `index-dir`) keep
+  separate caches instead of restoring and then re-saving each other's sources.
+  Sources are only stored when they were actually downloaded, and a run that
+  failed part-way through a long history keeps what it did download under its own
+  key, so the re-run continues instead of starting over.
 - **Built index** (`.since-index`), keyed by metadata **+** the tool hash — when it
   hits, the run skips download *and* parsing and just applies.
 
@@ -135,7 +141,8 @@ working tree, so one `create-pull-request` picks up all the changes:
   did not exist yet" and re-dates `@since` for every type in that module to the
   release after the hole. Retries are tunable via the `SINCE_FETCH_ATTEMPTS`
   (default `4`) and `SINCE_FETCH_DELAY` (default `3` seconds, doubled per attempt)
-  environment variables.
+  environment variables. An artifact that yields no index entries at all (no usable
+  `-sources.jar` in any release) fails the run for the same reason.
 
 ## Contents
 
