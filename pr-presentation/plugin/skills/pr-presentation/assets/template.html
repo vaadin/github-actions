@@ -1,0 +1,758 @@
+<title>__TITLE__</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Fira+Code:wght@400;600&display=swap">
+<style>
+/* reveal.js 5.1.0 core and "simple" theme, inlined by build.py */
+__REVEAL_CSS__
+</style>
+<style>
+/* Layout: reveal.js deck on a 1440x810 canvas. A title slide, then one slide per idea (left/right), each
+   a heading line and a before | after pair of code panes; all slides are horizontal.
+   A deliberate single light look. */
+:root {
+  --bg: #ffffff;
+  --fg: #1b1f27;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --accent: #2c5fd6;
+  --before-bg: #fdf3f3;
+  --after-bg: #f1faf3;
+  --ctx-bg: #f5f6f8;
+  --tip-bg: rgba(44, 95, 214, .08);
+  --tok-kw: #8a3fb8;
+  --tok-type: #1f6f8b;
+  --tok-str: #8a5a00;
+  --tok-com: #6f7785;
+  --tok-ann: #a2470f;
+  --font-ui: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --font-code: "Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r-background-color: var(--bg);
+  --r-main-font: var(--font-ui);
+  --r-main-color: var(--fg);
+  --r-main-font-size: 26px;
+  --r-heading-font: var(--font-ui);
+  --r-heading-color: var(--fg);
+  --r-heading-text-transform: none;
+  --r-heading-font-weight: 600;
+  --r-heading-letter-spacing: 0;
+  --r-link-color: var(--accent);
+  --r-progress-color: var(--accent);
+  color-scheme: light;
+}
+html, body { background: var(--bg); color: var(--fg); height: 100%; }
+* { font-variant-ligatures: none; }
+.reveal .slides { text-align: left; }
+.reveal .slides section { height: 100%; }
+.reveal h1 { font-size: 60px; line-height: 1.2; text-wrap: balance; margin: 0 0 24px; }
+.reveal h2 { font-size: 30px; line-height: 1.25; margin: 0; }
+.reveal p { margin: 0; }
+.reveal .slide-number { background: transparent; color: var(--muted); font: 13px var(--font-ui); }
+
+.title-slide { height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 0 40px; }
+.title-slide .meta { color: var(--muted); font-size: 18px; margin-bottom: 18px; }
+.title-slide .meta a { color: inherit; }
+.title-slide .lead { font-size: 19px; line-height: 1.55; color: var(--muted); max-width: 40em; }
+
+.concept { height: 100%; display: flex; flex-direction: column; gap: 18px; }
+.concept .lead { font-size: 21px; line-height: 1.5; color: var(--muted); max-width: 60em; }
+.concept .head { display: flex; align-items: baseline; gap: 16px; }
+.steps { display: flex; flex-direction: column; gap: 4px; max-width: 1100px; }
+.step-row { display: grid; grid-template-columns: 34px 1fr; gap: 14px; align-items: start; }
+.step-num { width: 30px; height: 30px; border-radius: 50%; background: var(--fg); color: var(--bg); font-weight: 600; font-size: 15px; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+.step-content { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.step-text { font-size: 19px; line-height: 1.45; }
+.side.step { background: var(--before-bg); padding: 12px 16px; gap: 6px; }
+.side.step .label { text-transform: none; letter-spacing: 0; font-family: var(--font-code); font-size: 13px; }
+.step-arrow { color: var(--muted); font-size: 20px; line-height: 1; padding-left: 7px; }
+.sides { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; flex-shrink: 0; }
+.sides.single { grid-template-columns: 1fr; }
+.side { border-radius: 10px; padding: 16px 18px; min-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 14px; }
+.side.before { background: var(--before-bg); }
+.side.after { background: var(--after-bg); }
+/* Context is supporting code: smaller and quieter than the changed code above it */
+.side.ctx { background: var(--ctx-bg); padding: 12px 16px; gap: 10px; }
+.side.ctx .chunk .lines, .side.ctx .chunk.recap .lines { font-size: 13.5px; opacity: .8; }
+.sides.only-ctx .side.ctx .chunk .lines { font-size: 15.5px; opacity: 1; }
+.side .label { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.chunk .cap { font-size: 14px; color: var(--muted); margin-bottom: 4px; display: flex; gap: 8px; align-items: baseline; }
+.chunk.recap .lines { opacity: .65; }
+.chunk .tag { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.chunk .lines { font-variant-ligatures: normal; font-family: var(--font-code); font-size: 15.5px; line-height: 1.5; }
+.chunk .ln { white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.55em; padding-left: 2ch; text-indent: -2ch; }
+.gap { color: var(--muted); opacity: .5; }
+.chunk .ln.blank { min-height: .8em; }
+.chunk .ln.del { background: rgba(207, 34, 46, .13); }
+.chunk .ln.add { background: rgba(26, 127, 55, .15); }
+/* The changed words of a partly changed line; a line that changed as a whole has only the line color */
+.chunk .ln.del .chg { background: rgba(207, 34, 46, .26); border-radius: 3px; }
+.chunk .ln.add .chg { background: rgba(26, 127, 55, .28); border-radius: 3px; }
+.chunk .cap .file { font-family: var(--font-code); font-size: 12.5px; color: var(--muted); }
+.chunk .ln.pad { background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(0, 0, 0, .04) 6px 7px); }
+.chunk .src { margin-left: 10px; color: var(--muted); opacity: .45; text-decoration: none; font-family: var(--font-ui); font-size: 13px; }
+.chunk .src:hover, .chunk .src:focus-visible { opacity: 1; color: var(--accent); }
+
+.tip { text-decoration: underline dotted var(--accent); text-decoration-thickness: 2px; text-underline-offset: 4px; cursor: help; border-radius: 3px; }
+.tip:hover, .tip:focus-visible, .tip.open { background: var(--tip-bg); outline: none; }
+#tooltip {
+  position: fixed; z-index: 50; max-width: min(360px, calc(100vw - 32px)); pointer-events: none;
+  background: var(--fg); color: var(--bg); font: 15px/1.45 var(--font-ui); padding: 8px 12px; border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .18);
+}
+.lead code, #tooltip code { font-family: var(--font-code); font-size: .88em; white-space: nowrap; }
+.lead code { color: var(--fg); }
+.t-kw { color: var(--tok-kw); } .t-ty { color: var(--tok-type); } .t-st { color: var(--tok-str); }
+.t-co { color: var(--tok-com); font-style: italic; } .t-an { color: var(--tok-ann); }
+
+/* Ask Claude: a chat per slide in a side panel, shown only where the viewer can reach Claude */
+#ask-btn {
+  position: fixed; left: 16px; bottom: 14px; z-index: 40; font: 500 14px var(--font-ui); color: var(--accent);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer;
+}
+#ask-btn:hover, #ask-btn:focus-visible { border-color: var(--accent); outline: none; }
+#ask {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 60; width: min(440px, 100vw); display: flex; flex-direction: column;
+  background: var(--bg); border-left: 1px solid var(--line); box-shadow: -8px 0 24px rgba(0, 0, 0, .08); font: 15px/1.5 var(--font-ui);
+}
+#ask[hidden] { display: none; }
+/* The deck makes room for the panel on wide screens; on narrow ones the panel covers it */
+@media (min-width: 900px) { body.asking .reveal { width: calc(100% - 440px) !important; } body.asking #ask-btn { display: none; } }
+#ask header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+#ask header .t { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ask header .t small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+#ask button { font: 500 13px var(--font-ui); border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+#ask button:hover, #ask button:focus-visible { border-color: var(--accent); outline: none; }
+#ask .log { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+#ask .empty { color: var(--muted); }
+#ask .msg { overflow-wrap: anywhere; }
+#ask .msg.user { align-self: flex-end; max-width: 85%; background: var(--tip-bg); border-radius: 10px; padding: 8px 12px; white-space: pre-wrap; }
+#ask .msg.claude p, #ask .msg.claude ul, #ask .msg.claude ol, #ask .msg.claude pre { margin: 0 0 8px; }
+#ask .msg.claude ul, #ask .msg.claude ol { padding-left: 20px; }
+#ask .msg.claude pre { background: var(--ctx-bg); border-radius: 6px; padding: 8px 10px; overflow-x: auto; font: 13px/1.45 var(--font-code); }
+#ask .msg code { font-family: var(--font-code); font-size: .88em; }
+#ask .msg.note { color: var(--muted); font-size: 13px; }
+#ask form { display: flex; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--line); align-items: flex-end; }
+#ask textarea { flex: 1; resize: none; font: 15px/1.4 var(--font-ui); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-height: 42px; max-height: 160px; }
+#ask textarea:focus { outline: none; border-color: var(--accent); }
+</style>
+
+<div class="reveal"><div class="slides" id="slides"></div></div>
+
+<script id="pr-data" type="application/json">__DATA__</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.js"></script>
+<script>
+(function () {
+  var data = JSON.parse(document.getElementById('pr-data').textContent);
+  var pr = data.pr, slides = data.slides;
+
+  var KW = new Set(('abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for if implements import instanceof int interface long native new package private protected public return short static super switch synchronized this throw throws transient try void volatile while var let function async await yield of in typeof null true false undefined export from as type readonly record sealed permits').split(' '));
+  var TOKEN = /(\/\/.*$|\/\*.*?(?:\*\/|$)|^\s*\*.*$)|("(?:[^"\\]|\\.)*"?|'(?:[^'\\]|\\.)*'?|`[^`]*`?)|(@[A-Za-z_]\w*)|\b([A-Za-z_$][\w$]*)\b/g;
+
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function hl(line) {
+    var out = '', last = 0, m;
+    TOKEN.lastIndex = 0;
+    while ((m = TOKEN.exec(line))) {
+      out += esc(line.slice(last, m.index));
+      var cls = m[1] ? 't-co' : m[2] ? 't-st' : m[3] ? 't-an'
+        : KW.has(m[4]) ? 't-kw' : /^[A-Z]/.test(m[4]) ? 't-ty' : '';
+      out += cls ? '<span class="' + cls + '">' + esc(m[0]) + '</span>' : esc(m[0]);
+      last = TOKEN.lastIndex;
+      if (m[0] === '') TOKEN.lastIndex++;
+    }
+    return out + esc(line.slice(last));
+  }
+  // Prose (slide sentence, summary, tooltips) marks code with backticks, as in Markdown
+  function prose(s) { return esc(s).replace(/(`+)\s*([^`]+?)\s*\1/g, '<code>$2</code>'); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function textLines(s) { return s == null || s === '' ? [] : s.replace(/\n$/, '').split('\n'); }
+  // An empty line between methods, classes or CSS rules, like in the source: after a closing "}"
+  // when the next line at the same indent starts a new member, not a statement after an if block.
+  var STATEMENT = /^(if|for|while|switch|try|else|do|catch|finally|return|throw|new|case|yield|await|const|let|var)\b/;
+  function startsMember(n) {
+    if (STATEMENT.test(n)) return false;
+    // Continuations of conditions and argument lists carry operators; declarations do not
+    if (/(&&|\|\||!=|==|\?\s|^[,.?&|+-])/.test(n.replace(/\[[^\]]*\]/g, ''))) return false;
+    if ((n.match(/\)/g) || []).length > (n.match(/\(/g) || []).length) return false; // end of a wrapped signature
+    if (/^@\w/.test(n)) return true;                                                // annotation, @media
+    if (/^(public|private|protected|static|final|abstract|default|class|interface|enum|record|export|async|function|get|set)\b/.test(n)) return true;
+    if (/^[\w$<>\[\],.?]+(\s+[\w$<>\[\],.?]+)*\s+[\w$]+\s*\(/.test(n)) return true;  // Type name(
+    if (/^#?[\w$]+\s*\([^)]*\)\s*\{$/.test(n)) return true;                          // JS class method
+    var bare = n.replace(/\[[^\]]*\]/g, '');                                           // ignore [attr="x"]
+    return /\{$/.test(n) && !/(=>|->|=|;)/.test(bare) && /^[.#:\[\w*&>~+-]/.test(n); // CSS selector
+  }
+  function withMemberGaps(lines) {
+    var out = [];
+    lines.forEach(function (t, i) {
+      out.push(t);
+      var next = lines[i + 1];
+      if (next == null || t.trim() !== '}') return;
+      var ind = t.match(/^\s*/)[0].length, nind = next.match(/^\s*/)[0].length;
+      if (nind === ind && startsMember(next.trim())) out.push('');
+    });
+    return out;
+  }
+  function chunkList(v) {
+    if (v == null || v === '') return [];
+    return [].concat(v).map(function (c) { return typeof c === 'string' ? { code: c } : c; });
+  }
+
+  // "..." standing alone (a whole line, "(a, ...)", "implements ... {") marks skipped code. Real code such as
+  // JS spread "...args" or Java varargs "int..." and anything inside strings stays as it is.
+  var GAP = '\uE000';
+  function markGaps(line) {
+    var strings = [], m, re = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`[^`]*`/g;
+    while ((m = re.exec(line))) strings.push([m.index, m.index + m[0].length]);
+    return line.replace(/(?<![\w$.])(?:\.\.\.|\u2026)(?![\w$.])/g, function (g, at) {
+      return strings.some(function (r) { return at >= r[0] && at < r[1]; }) ? g : GAP;
+    });
+  }
+  function codeHtml(line) { return hl(line).replace(/\uE000/g, '<span class="gap">\u2026</span>'); }
+  // A tip key matches only as a whole name: "bindImage()" must not match inside "unbindImage()".
+  function findAll(line, k) {
+    var W = /[\w$]/, from = 0, at, out = [];
+    while ((at = line.indexOf(k, from)) >= 0) {
+      var end = at + k.length;
+      var okStart = !W.test(k[0]) || at === 0 || !W.test(line[at - 1]);
+      var okEnd = !W.test(k[k.length - 1]) || end === line.length || !W.test(line[end]);
+      if (okStart && okEnd) out.push(at);
+      from = at + 1;
+    }
+    return out;
+  }
+  // Each tip goes to one place on the side: the first whole-name occurrence of its key,
+  // or the nth one for "key@n". Targets are found up front over all lines of the side.
+  function tipTargets(lines, raw) {
+    var targets = [];
+    raw.forEach(function (rk, i) {
+      var m = /@(\d+)$/.exec(rk), k = markGaps(rk.replace(/@\d+$/, '')), want = m ? Number(m[1]) : 1, seen = 0;
+      for (var li = 0; li < lines.length && seen < want; li++) {
+        var hits = findAll(lines[li], k);
+        if (seen + hits.length >= want) targets.push({ line: li, at: hits[want - seen - 1], len: k.length, i: i });
+        seen += hits.length;
+      }
+    });
+    return targets;
+  }
+  function lineHtml(line, targets) {
+    // Earliest first; at the same place the longer key wins; overlapping tips are dropped.
+    var t = targets.slice().sort(function (a, b) { return a.at - b.at || b.len - a.len; });
+    var out = '', pos = 0;
+    t.forEach(function (x) {
+      if (x.at < pos) return;
+      out += codeHtml(line.slice(pos, x.at))
+        + '<span class="tip" tabindex="0" data-tip="' + x.i + '">' + codeHtml(line.slice(x.at, x.at + x.len)) + '</span>';
+      pos = x.at + x.len;
+    });
+    return out + codeHtml(line.slice(pos));
+  }
+  // Aligned panes: each chunk on the left is lined up with the chunk at the same place on the right, row by
+  // row like a split diff, when the two share enough lines; removed lines are marked on the left, added lines
+  // on the right, and the other side gets an empty row. Lines compare without their indent, so code that only
+  // moved into a new block stays unmarked. Lines with no name in them (braces, blank lines) weigh little, so
+  // they never pull real lines out of line.
+  function weight(t) { return /[\w$]/.test(t) ? 100 : 1; }
+  function diffRows(a, b) {
+    var A = a.map(function (t) { return t.trim(); }), B = b.map(function (t) { return t.trim(); });
+    var n = A.length, m = B.length, dp = [], i, j;
+    for (i = n; i >= 0; i--) {
+      dp[i] = [];
+      for (j = m; j >= 0; j--) {
+        dp[i][j] = i === n || j === m ? 0
+          : Math.max(dp[i + 1][j], dp[i][j + 1], A[i] === B[j] ? dp[i + 1][j + 1] + weight(A[i]) : 0);
+      }
+    }
+    var rows = [], dels = [], adds = [], shared = 0;
+    function flush() {
+      for (var k = 0; k < Math.max(dels.length, adds.length); k++) {
+        rows.push({ l: k < dels.length ? dels[k] : null, r: k < adds.length ? adds[k] : null, changed: true });
+      }
+      dels = []; adds = [];
+    }
+    i = 0; j = 0;
+    while (i < n || j < m) {
+      if (i < n && j < m && A[i] === B[j] && dp[i][j] === dp[i + 1][j + 1] + weight(A[i])) {
+        flush();
+        rows.push({ l: i, r: j });
+        if (weight(A[i]) > 1) shared++;
+        i++; j++;
+      } else if (j === m || (i < n && dp[i + 1][j] >= dp[i][j + 1])) dels.push(i++);
+      else adds.push(j++);
+    }
+    flush();
+    var total = Math.max(A.filter(function (t) { return weight(t) > 1; }).length, B.filter(function (t) { return weight(t) > 1; }).length);
+    return { rows: rows, similar: total > 0 && shared / total >= 0.3 };
+  }
+  // Chunk pairs are aligned from the top until the first pair that differs in kind (changed code vs context)
+  // or shares too little; after that the panes flow on their own. Context pairs line up but get no marks.
+  function isCode(t) { t = t.trim(); return !!t && t !== '...' && t !== '\u2026'; }
+  function alignPanes(left, right, on) {
+    var plans = { before: [], after: [] };
+    for (var k = 0; on && k < Math.min(left.length, right.length); k++) {
+      var a = left[k], b = right[k], faded = !!(a.context || a.recap);
+      if (faded !== !!(b.context || b.recap)) break;
+      var la = withMemberGaps(textLines(a.code)), lb = withMemberGaps(textLines(b.code)), d = diffRows(la, lb);
+      if (!d.similar) break;
+      var cap = !!(a.caption || b.caption || a.recap || b.recap || a.showFile || b.showFile);
+      // Blank lines and "..." gaps inside a changed block stay unmarked, so the marks show only real code
+      plans.before.push({ cap: cap, rows: d.rows.map(function (r) { return { line: r.l, mark: !faded && r.changed && r.l != null && isCode(la[r.l]) ? 'del' : '' }; }) });
+      plans.after.push({ cap: cap, rows: d.rows.map(function (r) { return { line: r.r, mark: !faded && r.changed && r.r != null && isCode(lb[r.r]) ? 'add' : '' }; }) });
+    }
+    return plans;
+  }
+  // Changed words, as in a split diff: equal lines (whitespace ignored) anchor the two panes, and the words
+  // of each block of changed lines between anchors are compared, so a line that was only rewrapped stays
+  // unmarked and a line that changed in one word shows that word. Names weigh more than punctuation, so a
+  // shared ")" never pulls names out of line. Every line of a changed block gets the line color; a line
+  // where most names changed, and a block that shares too little, get no word marks.
+  var TOK = /[\w$]+|[^\s\w$\uE000]/g;
+  function tokenize(lines, ids) {
+    var out = [];
+    ids.forEach(function (li) {
+      var m; TOK.lastIndex = 0;
+      while ((m = TOK.exec(lines[li]))) out.push({ li: li, s: m.index, e: m.index + m[0].length, t: m[0] });
+    });
+    return out;
+  }
+  function tokWeight(t) { return /[\w$]/.test(t) ? 4 : 1; }
+  function isName(x) { return tokWeight(x.t) > 1; }
+  function blockMarks(a, b, la, lb, out) {
+    var A = tokenize(a, la), B = tokenize(b, lb), n = A.length, m = B.length, i, j, dp = [];
+    var whole = !n || !m || n * m > 400000;
+    if (!whole) {
+      for (i = n; i >= 0; i--) {
+        dp[i] = new Int32Array(m + 1);
+        for (j = m - 1; i < n && j >= 0; j--) {
+          dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1], A[i].t === B[j].t ? dp[i + 1][j + 1] + tokWeight(A[i].t) : 0);
+        }
+      }
+      i = 0; j = 0;
+      while (i < n && j < m) {
+        if (A[i].t === B[j].t && dp[i][j] === dp[i + 1][j + 1] + tokWeight(A[i].t)) { A[i].keep = B[j].keep = true; i++; j++; }
+        else if (dp[i + 1][j] >= dp[i][j + 1]) i++;
+        else j++;
+      }
+      var names = Math.max(A.filter(isName).length, B.filter(isName).length);
+      whole = !names || A.filter(function (x) { return x.keep && isName(x); }).length / names < 0.3;
+    }
+    [[a, la, A, out.before], [b, lb, B, out.after]].forEach(function (s) {
+      s[1].forEach(function (li) {
+        if (!/[^\s\uE000]/.test(s[0][li])) return; // blank line or "..."
+        var toks = s[2].filter(function (x) { return x.li === li; }), gone = toks.filter(function (x) { return !x.keep; });
+        var ns = toks.filter(isName), goneNs = gone.filter(isName);
+        if (whole || !ns.length || goneNs.length * 2 > ns.length) { s[3][li] = { ranges: [] }; return; }
+        var ranges = [];
+        gone.forEach(function (x) {
+          var last = ranges[ranges.length - 1];
+          // Neighbouring changed tokens with only spaces between them form one mark
+          if (last && /^\s*$/.test(s[0][li].slice(last[1], x.s))) last[1] = x.e;
+          else ranges.push([x.s, x.e]);
+        });
+        s[3][li] = { ranges: ranges };
+      });
+    });
+  }
+  function wordMarks(a, b) {
+    var out = { before: [], after: [] }, la = [], lb = [];
+    function flush() { if (la.length || lb.length) blockMarks(a, b, la, lb, out); la = []; lb = []; }
+    diffRows(a, b).rows.forEach(function (r) {
+      if (!r.changed) { flush(); return; }
+      if (r.l != null) la.push(r.l);
+      if (r.r != null) lb.push(r.r);
+    });
+    flush();
+    return out;
+  }
+  // Wraps character ranges of a rendered line in .chg spans, across its highlight and tip spans
+  function wrapRanges(node, ranges) {
+    if (!ranges.length) return;
+    var walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT), texts = [], tn, pos = 0;
+    while ((tn = walker.nextNode())) texts.push(tn);
+    texts.forEach(function (t) {
+      var s0 = pos, e0 = pos + t.data.length, cuts = [];
+      pos = e0;
+      ranges.forEach(function (r) { var s = Math.max(r[0], s0), e = Math.min(r[1], e0); if (s < e) cuts.push([s - s0, e - s0]); });
+      if (!cuts.length) return;
+      var frag = document.createDocumentFragment(), last = 0;
+      cuts.forEach(function (c) {
+        if (c[0] > last) frag.appendChild(document.createTextNode(t.data.slice(last, c[0])));
+        frag.appendChild(el('span', 'chg', t.data.slice(c[0], c[1])));
+        last = c[1];
+      });
+      if (last < t.data.length) frag.appendChild(document.createTextNode(t.data.slice(last)));
+      t.parentNode.replaceChild(frag, t);
+    });
+  }
+  // The lines of a pane as the page shows them: member gaps added, indent removed, "..." marked
+  function paneLines(chunks) {
+    var all = [];
+    chunks.forEach(function (c) {
+      withMemberGaps(textLines(c.code)).forEach(function (t) { all.push(markGaps(t.slice(t.match(/^\s*/)[0].length))); });
+    });
+    return all;
+  }
+  // Each chunk names its file, unless the chunk before it in the same pane is from the same file
+  function markFiles(chunks) {
+    chunks.forEach(function (c, k) { c.showFile = !!c.file && (k === 0 || chunks[k - 1].file !== c.file); });
+  }
+
+  // Paired rows of aligned chunks get the same height, so a line that wraps on one side keeps the rows level.
+  function syncRows(body) {
+    var after = {}, pairs = [];
+    body.querySelectorAll('.side.after [data-row]').forEach(function (d) { d.style.minHeight = ''; after[d.dataset.row] = d; });
+    body.querySelectorAll('.side.before [data-row]').forEach(function (d) {
+      d.style.minHeight = '';
+      if (after[d.dataset.row]) pairs.push([d, after[d.dataset.row]]);
+    });
+    pairs.map(function (p) { return Math.max(p[0].offsetHeight, p[1].offsetHeight); }).forEach(function (h, i) {
+      pairs[i][0].style.minHeight = pairs[i][1].style.minHeight = h + 'px';
+    });
+  }
+
+  var tipTexts = [];
+  // A side without code is left out, and the other side takes the full width. Unchanged context goes
+  // into a neutral pane of its own below the changed code, so it is never boxed inside a colored pane;
+  // so does code repeated from an earlier slide (recap), which supports the change rather than being it.
+  // marks: the word marks of the pane's lines (from wordMarks), or null to use the row marks of plans
+  function sideEl(cls, label, chunks, tips, plans, marks) {
+    if (!chunks.length) return {};
+    var raw = Object.keys(tips || {}), base = tipTexts.length;
+    raw.forEach(function (k) { tipTexts.push(tips[k]); });
+    var all = paneLines(chunks), markCls = cls === 'before' ? 'del' : 'add';
+    var targets = tipTargets(all, raw), lineNo = 0;
+    var main = null, ctx = null;
+    chunks.forEach(function (c, k) {
+      var plan = plans && plans[k];
+      var side;
+      if (c.context || c.recap === true) {
+        if (!ctx) { ctx = el('div', 'side ctx ' + cls); ctx.appendChild(el('div', 'label', 'Context')); }
+        side = ctx;
+      } else {
+        if (!main) { main = el('div', 'side ' + cls); main.appendChild(el('div', 'label', label)); }
+        side = main;
+      }
+      var node = el('div', 'chunk' + (c.recap ? ' recap' : ''));
+      if (c.caption || c.recap || c.showFile || (plan && plan.cap)) {
+        var cap = el('div', 'cap', c.caption || (c.showFile ? null : '\u00a0'));
+        if (c.showFile) { var f = el('span', 'file', c.file); f.title = c.file; cap.insertBefore(f, cap.firstChild); }
+        if (c.recap) cap.appendChild(el('span', 'tag', c.recap === 'above' ? 'from above' : 'shown earlier'));
+        if (plan) cap.dataset.row = k + ':cap';
+        node.appendChild(cap);
+      }
+      var src = withMemberGaps(textLines(c.code)), start = lineNo, ci = 0;
+      var urls = src.map(function (t) { return t.trim() && c.links ? c.links[ci++] : null; });
+      lineNo += src.length;
+      var rows = plan ? plan.rows : src.map(function (t, i) { return { line: i, mark: '' }; });
+      var lines = el('div', 'lines');
+      rows.forEach(function (r, ri) {
+        var d;
+        if (r.line == null) {
+          d = el('div', 'ln pad');
+        } else {
+          var t = src[r.line], li = start + r.line, wm = marks && marks[li];
+          var mark = marks ? (wm ? markCls : '') : r.mark;
+          d = el('div', 'ln' + (t.trim() ? '' : ' blank') + (mark ? ' ' + mark : ''));
+          d.style.paddingLeft = (t.match(/^\s*/)[0].length + 2) + 'ch';
+          d.innerHTML = lineHtml(all[li], targets.filter(function (x) { return x.line === li; }));
+          if (wm) wrapRanges(d, wm.ranges);
+          if (urls[r.line]) {
+            var a = el('a', 'src', '\u2197');
+            a.href = urls[r.line]; a.target = '_blank'; a.rel = 'noopener';
+            a.title = 'Open on GitHub';
+            d.appendChild(a);
+          }
+        }
+        if (plan) d.dataset.row = k + ':' + ri;
+        lines.appendChild(d);
+      });
+      lines.querySelectorAll('.tip').forEach(function (t) { t.dataset.tip = base + Number(t.dataset.tip); });
+      node.appendChild(lines);
+      side.appendChild(node);
+    });
+    return { main: main, ctx: ctx };
+  }
+
+  // Slides: a title slide from the PR, then one slide per concept.
+  var deck = document.getElementById('slides');
+  var titleSec = el('section'), title = el('div', 'title-slide'), meta = el('div', 'meta');
+  meta.innerHTML = esc(pr.repo) + ' <a href="' + esc(pr.url) + '" target="_blank" rel="noopener">#' + pr.number + '</a>';
+  title.appendChild(meta);
+  title.appendChild(el('h1', null, pr.title));
+  if (data.summary) { var sum = el('p', 'lead'); sum.innerHTML = prose(data.summary); title.appendChild(sum); }
+  titleSec.appendChild(title);
+  deck.appendChild(titleSec);
+  // One screen per slide, all horizontal. A pane left empty is left out.
+  function panes(s) {
+    var out = {};
+    ['before', 'after'].forEach(function (side) {
+      var cap = side === 'before' ? 'Before' : 'After', one = side === 'before' ? 'beforeTips' : 'afterTips';
+      out[side] = { chunks: chunkList(s[side]), tips: Object.assign({}, s.tips, s[one]), label: s[side + 'Label'] || cap };
+      // Step code is old code, so it takes the tips of the Before side
+      if (side === 'before' && s.steps) out[side].tips = Object.assign({}, s.tips, s.beforeTips);
+    });
+    return out;
+  }
+  // A step list shows what happens in order: a number, one sentence and the few lines of code that do it,
+  // with an arrow to the next step. It shows a bug as it runs, which side-by-side panes cannot.
+  function stepsEl(s, p) {
+    var list = el('div', 'steps');
+    s.steps.forEach(function (step, i) {
+      if (i) list.appendChild(el('div', 'step-arrow', '\u2193'));
+      var row = el('div', 'step-row'), content = el('div', 'step-content');
+      row.appendChild(el('div', 'step-num', String(i + 1)));
+      var t = el('div', 'step-text'); t.innerHTML = prose(step.text); content.appendChild(t);
+      var code = sideEl('step', step.where || '', [{ code: step.code, links: step.links }], p.before.tips, null).main;
+      if (code) content.appendChild(code);
+      row.appendChild(content);
+      list.appendChild(row);
+    });
+    return list;
+  }
+  function conceptSection(s, p) {
+    var sec = el('section'), body = el('div', 'concept');
+    sec.appendChild(body);
+    var head = el('div', 'head');
+    head.appendChild(el('h2', null, s.title));
+    body.appendChild(head);
+    var text = s.text;
+    if (text) { var lead = el('p', 'lead'); lead.innerHTML = prose(text); body.appendChild(lead); }
+    if (s.steps) { body.appendChild(stepsEl(s, p)); return sec; }
+    var sides = el('div', 'sides');
+    // Changed code on top, old left and new right; all context of the slide below it, across both columns,
+    // the same code shown once. Context never takes a column, so a side with only context leaves the
+    // changed code of the other side at the full width.
+    function changed(chunks) { return chunks.filter(function (c) { return !c.context && c.recap !== true; }); }
+    var bc = changed(p.before.chunks), ac = changed(p.after.chunks), seen = {};
+    var ctx = p.before.chunks.concat(p.after.chunks).filter(function (c) {
+      if (bc.indexOf(c) >= 0 || ac.indexOf(c) >= 0) return false;
+      var key = (c.file || '') + '\n' + c.code.trim();
+      return seen[key] ? false : (seen[key] = true);
+    });
+    [bc, ac, ctx].forEach(markFiles);
+    var plans = alignPanes(bc, ac, s.align !== false);
+    var marks = bc.length && ac.length && s.align !== false ? wordMarks(paneLines(bc), paneLines(ac)) : null;
+    var cols = [sideEl('before', p.before.label, bc, p.before.tips, plans.before, marks && marks.before).main,
+                sideEl('after', p.after.label, ac, p.after.tips, plans.after, marks && marks.after).main]
+      .filter(Boolean);
+    // The context pane takes the tips that have no place in the changed code
+    var mainLines = paneLines(bc).concat(paneLines(ac)), ctxTips = {};
+    [p.before.tips, p.after.tips].forEach(function (t) {
+      Object.keys(t).forEach(function (k) { if (!tipTargets(mainLines, [k]).length) ctxTips[k] = t[k]; });
+    });
+    var wide = ctx.length ? sideEl('ctx', '', ctx, ctxTips).ctx : null;
+    cols.forEach(function (c, i) { c.style.gridColumn = i + 1; c.style.gridRow = 1; sides.appendChild(c); });
+    if (wide) { wide.style.gridColumn = '1 / -1'; wide.style.gridRow = cols.length ? 2 : 1; sides.appendChild(wide); }
+    if (cols.length < 2) sides.classList.add('single');
+    // A slide with no changed code is about its context, so the context gets the normal code size
+    if (!cols.length) sides.classList.add('only-ctx');
+    body.appendChild(sides);
+    return sec;
+  }
+  slides.forEach(function (s) { deck.appendChild(conceptSection(s, panes(s))); });
+
+  // Tooltips: hover or focus shows the tip; a tap or click keeps it open until the next tap elsewhere.
+  var tooltip = el('div'); tooltip.id = 'tooltip'; tooltip.setAttribute('role', 'tooltip'); tooltip.hidden = true;
+  document.body.appendChild(tooltip);
+  var openTip = null;
+  function showTip(t) {
+    tooltip.innerHTML = prose(tipTexts[Number(t.dataset.tip)] || '');
+    tooltip.hidden = false;
+    var r = t.getBoundingClientRect(), w = tooltip.offsetWidth, h = tooltip.offsetHeight;
+    var left = Math.max(16, Math.min(r.left, window.innerWidth - w - 16));
+    var top = r.bottom + 8;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
+    tooltip.style.left = left + 'px'; tooltip.style.top = top + 'px';
+  }
+  function closeTip() { if (openTip) openTip.classList.remove('open'); openTip = null; tooltip.hidden = true; }
+  function isTip(n) { return n && n.classList && n.classList.contains('tip'); }
+  document.addEventListener('mouseover', function (e) { var t = e.target.closest && e.target.closest('.tip'); if (t) showTip(t); });
+  document.addEventListener('mouseout', function (e) { if (e.target.closest && e.target.closest('.tip') && !openTip) tooltip.hidden = true; });
+  document.addEventListener('focusin', function (e) { if (isTip(e.target)) showTip(e.target); });
+  document.addEventListener('focusout', function (e) { if (isTip(e.target) && !openTip) tooltip.hidden = true; });
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('.tip');
+    var same = t && t === openTip;
+    closeTip();
+    if (t && !same) { openTip = t; t.classList.add('open'); showTip(t); }
+  });
+
+  // Long slides: shrink the code font in small steps until the slide fits its 810px canvas (not below 13px)
+  function fitSlides() {
+    document.querySelectorAll('.concept').forEach(function (body) {
+      // Reveal hides sections (and the stack around a part) before showing them; make them measurable
+      var size = 15.5, shown = [];
+      for (var n = body.parentNode; n && n.tagName === 'SECTION'; n = n.parentNode) { shown.push([n, n.style.display]); n.style.display = 'block'; }
+      syncRows(body);
+      while (body.scrollHeight > body.clientHeight + 1 && size > 13) {
+        size -= 0.5;
+        body.querySelectorAll('.chunk .lines').forEach(function (l) { l.style.fontSize = size + 'px'; });
+        syncRows(body);
+      }
+      shown.forEach(function (x) { x[0].style.display = x[1]; });
+    });
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitSlides); else fitSlides();
+
+  Reveal.initialize({
+    width: 1440, height: 810, margin: 0.04, center: false,
+    controls: false, progress: true, slideNumber: 'c/t', hash: false,
+    transition: 'fade', transitionSpeed: 'fast', backgroundTransition: 'none'
+  });
+  Reveal.on('slidechanged', closeTip);
+  Reveal.on('overviewshown', closeTip);
+
+
+  // Ask Claude: one chat per screen, started from the "Ask Claude" button. Claude gets the PR, the deck's
+  // outline and tips, and this screen's code; chats live only in this page load.
+  if (window.claude && window.claude.use) window.claude.use('sample').then(function (sample) {
+    if (!sample) return;
+    var btn = el('button', null, 'Ask Claude about this slide'); btn.id = 'ask-btn'; btn.type = 'button';
+    var panel = el('aside'); panel.id = 'ask'; panel.hidden = true; panel.setAttribute('aria-label', 'Ask Claude');
+    var head = el('header'), title = el('div', 't');
+    var fresh = el('button', null, 'New chat'), close = el('button', null, 'Close');
+    fresh.type = close.type = 'button';
+    head.append(title, fresh, close);
+    var log = el('div', 'log'), form = el('form'), box = el('textarea'), send = el('button', null, 'Send');
+    box.rows = 2; box.placeholder = 'Ask about this slide…'; send.type = 'submit';
+    form.append(box, send);
+    panel.append(head, log, form);
+    document.body.append(btn, panel);
+
+    var chats = {}, ctl = null, key = null;
+    function where() { return { h: Reveal.getIndices().h }; }
+    function screenOf(w) {
+      return w.h === 0 ? { title: pr.title } : { slide: slides[w.h - 1], title: slides[w.h - 1].title };
+    }
+    function context(w) {
+      var sc = screenOf(w), lines = [
+        'You help a developer review a GitHub pull request. They are reading a slide deck that walks through its',
+        'code changes, and ask about the slide they are on. Below is the PR material: its description and review',
+        'discussion, a note on every hunk, the full diff, the changed files before (base) and after (head), and',
+        'unchanged files the change depends on, such as base classes and helpers (side "unchanged").',
+        'Reason from that code, not from the slide alone: follow calls across files, compare base and head, and',
+        'check what the change does in cases the slide does not show. Name the file and function you rely on.',
+        'If the answer needs code that is not in the material, say what is missing instead of guessing.',
+        'Answer plainly and to the point. Use Markdown; put code names in backticks.',
+        '', 'PR: ' + pr.repo + '#' + pr.number + ' "' + pr.title + '" ' + pr.url];
+      if (data.summary) lines.push('Summary: ' + data.summary);
+      var chat = data.chat || { docs: [], files: [], omitted: [] };
+      chat.docs.forEach(function (d) {
+        lines.push('', '<document name="' + d.name + '" about="' + d.about + '">', d.text.replace(/\n$/, ''), '</document>');
+      });
+      chat.files.forEach(function (f) {
+        ['base', 'head', 'unchanged'].forEach(function (side) {
+          if (f[side] != null) lines.push('', '<file path="' + f.path + '" side="' + side + '">', f[side].replace(/\n$/, ''), '</file>');
+        });
+      });
+      if (chat.omitted.length) lines.push('', 'Left out for size: ' + chat.omitted.join(', '));
+      lines.push('', 'The deck, slide by slide (title, sentence, tooltips on the code):');
+      slides.forEach(function (s, i) {
+        var tips = {};
+        ['tips', 'beforeTips', 'afterTips'].forEach(function (k) { Object.assign(tips, s[k]); });
+        lines.push((i + 1) + '. ' + s.title + ': ' + (s.text || ''));
+        Object.keys(tips).forEach(function (k) { lines.push('   - ' + k.replace(/@\d+$/, '') + ': ' + tips[k]); });
+      });
+      if (sc.slide) {
+        var slide = sc.slide;
+        lines.push('', 'The reader is on slide ' + w.h + ' "' + sc.title + '".');
+        (slide.steps || []).forEach(function (step, i) {
+          lines.push('', 'Step ' + (i + 1) + (step.where ? ' (in ' + step.where + ')' : '') + ': ' + step.text, '```\n' + step.code + '\n```');
+        });
+        ['before', 'after'].forEach(function (side) {
+          var chunks = chunkList(slide[side]);
+          if (!chunks.length) return;
+          lines.push('', (slide[side + 'Label'] || side) + ' code on this slide:');
+          chunks.forEach(function (c) {
+            lines.push((c.context ? '(unchanged context)\n' : '') + '```\n' + c.code + '\n```');
+          });
+        });
+      } else {
+        lines.push('', 'The reader is on the title slide.');
+      }
+      return lines.join('\n');
+    }
+    function md(text) {
+      var out = [], list = null;
+      function flush() { if (list) { out.push('</' + list + '>'); list = null; } }
+      text.split(/(```[^\n]*\n[\s\S]*?(?:```|$))/).forEach(function (block) {
+        var fence = /^```[^\n]*\n([\s\S]*?)(?:```)?$/.exec(block);
+        if (fence) { flush(); out.push('<pre><code>' + esc(fence[1].replace(/\n$/, '')) + '</code></pre>'); return; }
+        block.split('\n').forEach(function (line) {
+          var inline = function (t) { return prose(t).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'); };
+          var m = /^\s*(?:([-*])|(\d+)\.)\s+(.*)$/.exec(line);
+          if (m) {
+            var tag = m[1] ? 'ul' : 'ol';
+            if (list !== tag) { flush(); out.push('<' + tag + '>'); list = tag; }
+            out.push('<li>' + inline(m[3]) + '</li>');
+          } else if (line.trim()) { flush(); out.push('<p>' + inline(line.replace(/^#+\s*/, '')) + '</p>'); }
+          else flush();
+        });
+      });
+      flush();
+      return out.join('');
+    }
+    function bubble(cls, html) { var b = el('div', 'msg ' + cls); b.innerHTML = html; log.appendChild(b); log.scrollTop = log.scrollHeight; return b; }
+    function render() {
+      var w = where(), sc = screenOf(w);
+      key = String(w.h);
+      title.innerHTML = esc(sc.title);
+      log.textContent = '';
+      var turns = chats[key] || [];
+      if (!turns.length) log.appendChild(el('div', 'empty', 'Ask anything about this slide: why a line changed, what a name does, what could break.'));
+      turns.forEach(function (t) { bubble(t.role === 'user' ? 'user' : 'claude', t.role === 'user' ? esc(t.content) : md(t.content)); });
+    }
+    function stop() { if (ctl) ctl.abort(); }
+    function busy(on) { send.textContent = on ? 'Stop' : 'Send'; box.disabled = on; }
+    function show(on) { panel.hidden = !on; document.body.classList.toggle('asking', on); Reveal.layout(); }
+    function open() { show(true); render(); box.focus(); }
+    function shut() { stop(); show(false); btn.focus(); }
+    function hideAll() { stop(); show(false); btn.remove(); panel.remove(); }
+    var FAIL = {
+      rate_limited: 'Too many requests for now. Try again in a little while.',
+      session_expired: 'Your session expired. Sign in again, then retry.',
+      refused: 'Claude declined this question. Try asking it differently.',
+      prompt_too_large: 'This chat got too long. Start a new chat.',
+      empty_completion: 'Claude gave no answer. Try rephrasing the question.'
+    };
+    var GONE = ['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'];
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (ctl) { stop(); return; }
+      var q = box.value.trim();
+      if (!q) return;
+      var k = key, turns = chats[k] = chats[k] || [];
+      if (!turns.length) log.textContent = '';
+      turns.push({ role: 'user', content: q });
+      bubble('user', esc(q));
+      box.value = '';
+      var reply = bubble('claude', '<p class="empty">Thinking…</p>'), mine = ctl = new AbortController();
+      busy(true);
+      sample([{ role: 'user', content: context(where()) }].concat(turns), {
+        cache: false, signal: mine.signal,
+        onText: function (u) { reply.innerHTML = md(u.text); log.scrollTop = log.scrollHeight; }
+      }).then(function (r) {
+        turns.push({ role: 'assistant', content: r.text });
+        if (r.truncated) bubble('note', 'The answer was cut short. Ask for less at a time.');
+      }, function (err) {
+        if (GONE.indexOf(err.code) >= 0) { hideAll(); return; }
+        if (err.text) turns.push({ role: 'assistant', content: err.text });
+        if (err.code === 'refused' || !err.text) reply.remove(); else reply.innerHTML = md(err.text);
+        if (err.code !== 'cancelled') bubble('note', esc(FAIL[err.code] || 'Something went wrong. Try again.'));
+      }).then(function () { if (ctl === mine) ctl = null; busy(false); box.focus(); });
+    });
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); }
+      if (e.key === 'Escape') shut();
+    });
+    btn.addEventListener('click', function () { if (panel.hidden) open(); else shut(); });
+    close.addEventListener('click', shut);
+    fresh.addEventListener('click', function () { stop(); delete chats[key]; render(); box.focus(); });
+    Reveal.on('slidechanged', function () { if (!panel.hidden) { stop(); render(); } });
+  });})();
+</script>

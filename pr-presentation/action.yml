@@ -1,0 +1,95 @@
+name: 'Claude PR Presentation'
+description: >-
+  Explains a pull request as a slide deck built from its code with Claude
+  Code, and links the deck from one comment on the PR: a prepare step collects
+  the PR (diff, metadata, linked issues, two worktrees) with a read-only
+  token, one headless Claude Code session follows the pr-presentation skill
+  and writes the deck, the deck is uploaded as a plain HTML artifact, and a
+  posting step creates or updates the comment with a second token.
+
+inputs:
+  anthropic-api-key:
+    description: >-
+      Anthropic API key. Pass the repository secret, e.g.
+      secrets.ANTHROPIC_API_KEY.
+    required: true
+  pr-number:
+    description: >-
+      Number of the pull request to present, computed by the caller from the
+      triggering event (e.g. github.event.issue.number ||
+      github.event.pull_request.number).
+    required: true
+  github-token:
+    description: >-
+      Read-only token used to collect the PR inputs (pull request metadata,
+      linked issues, the merge base). The Claude session never sees a token.
+      Keep the job's permissions at contents read and pull-requests read so
+      the default token is read-only.
+    required: false
+    default: ${{ github.token }}
+  comment-token:
+    description: >-
+      Token used only to post or update the PR comment; its identity is the
+      comment author. Needs pull-requests write. Pass a bot token or a
+      GitHub App installation token.
+    required: true
+  upload-execution-log:
+    description: >-
+      Set to 'true' to upload the full stream-json execution log as a workflow
+      artifact. Off by default because the log contains every tool_use with its
+      input and every tool_result, and on a public repository the artifact is
+      world-readable. Typically wired to a repository variable, e.g.
+      vars.CLAUDE_DEBUG.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare presentation inputs
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: node "$GITHUB_ACTION_PATH/prepare-presentation.mjs" "${{ inputs.pr-number }}"
+
+    - name: Install Claude Code
+      shell: bash
+      run: npm install -g @anthropic-ai/claude-code@2.1.311
+
+    - name: Run Claude Code presentation
+      id: run
+      shell: bash
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+      run: node "$GITHUB_ACTION_PATH/run-presentation.mjs" "${{ inputs.pr-number }}"
+
+    # archive: false stores the file as it is, so the artifact URL opens the
+    # deck in the browser. The artifact then takes the file's name (the name
+    # input is ignored); overwrite covers a re-run of the same workflow run.
+    - name: Upload deck
+      id: deck
+      uses: actions/upload-artifact@v7
+      with:
+        path: ${{ steps.run.outputs.deck-file }}
+        archive: false
+        overwrite: true
+
+    - name: Post comment
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.comment-token }}
+        ARTIFACT_URL: ${{ steps.deck.outputs.artifact-url }}
+      run: node "$GITHUB_ACTION_PATH/post-comment.mjs" "${{ inputs.pr-number }}"
+
+    - name: Summarize Claude session
+      if: always() && steps.run.outputs.execution-file != ''
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/../lib/claude-summary.mjs" "${{ steps.run.outputs.execution-file }}"
+
+    - name: Upload Claude execution log
+      if: always() && inputs.upload-execution-log == 'true' && steps.run.outputs.execution-file != ''
+      uses: actions/upload-artifact@v7
+      with:
+        name: pr-presentation-execution-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ steps.run.outputs.execution-file }}
+        retention-days: 7
