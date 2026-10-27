@@ -1,0 +1,5 @@
+{
+  "name": "pr-presentation",
+  "description": "Explains a pull request as a slide deck built from its code.",
+  "version": "1.0.0"
+}
