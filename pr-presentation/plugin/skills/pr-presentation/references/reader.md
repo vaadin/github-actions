@@ -44,9 +44,9 @@ A reader sees the slides one at a time and cannot look ahead. A slide that a lat
 
 After the last slide, read `<NOTES>` once more and add the **Not needed** items: a term, claim or step that the reader did not need to follow what was wrong and how the change corrects it. Only this pass may use the whole deck and add to earlier sections.
 
-A tooltip that starts with "Open question:" is a review note for the author of the change, not part of the explanation. Skip it: do not report it as not needed, and do not report a term that appears only in such a tooltip.
+A tooltip that starts with "Suspected bug", "Unexplained" or "Unused" is a review note for the author of the change, not part of the explanation. Skip it: do not report it as not needed, and do not report a term that appears only in such a tooltip.
 
-Report only what stops the reader from following what was wrong and how the change corrects it. Do not report questions that only add background. Do not report a term that a tooltip on the same slide explains. Do not report style or design. The title slide is a summary that comes before all explanations: report a term from it only if no slide explains it, so write its section last, in the "Not needed" pass.
+Report only what stops the reader from following what was wrong and how the change corrects it. Do not report questions that only add background. Do not report a term that a tooltip on the same slide explains. Do not report style or design. The title slide is a summary and the reason for the change, before all explanations: report a term from it only if no slide explains it, so write its section last, in the "Not needed" pass. Its "Why" line may name an issue; the reader cannot open it, so the line must say what the change is for on its own.
 
 ## Output
 
