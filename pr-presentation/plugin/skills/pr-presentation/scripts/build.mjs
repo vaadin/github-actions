@@ -17,8 +17,6 @@ import { parseArgs } from 'node:util';
 
 const ASSETS = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets');
 const TEMPLATE = join(ASSETS, 'template.html');
-// reveal.js 5.1.0 stylesheets, inlined so the deck is one self-contained file
-const REVEAL_CSS = [join(ASSETS, 'reveal', 'reveal.min.css'), join(ASSETS, 'reveal', 'simple.min.css')];
 
 const CHUNK_KEYS = new Set(['code', 'caption', 'context', 'file']);
 const OPEN_KINDS = ['Suspected bug', 'Unexplained', 'Unused'];
@@ -272,9 +270,8 @@ function main() {
   };
   const payload = JSON.stringify(data).replace(/<\//g, '<\\/');
   let html = read(TEMPLATE);
-  // Function replacers, so that "$" in the CSS or the code is not read as a replacement pattern
+  // Function replacers, so that "$" in the code is not read as a replacement pattern
   html = html.replace('__TITLE__', () => `PR ${pr.number} Presentation`);
-  html = html.replace('__REVEAL_CSS__', () => REVEAL_CSS.map((p) => read(p).replace(/@import url\([^)]*\);/g, '')).join('\n'));
   html = html.replace('__DATA__', () => payload);
   writeFileSync(a.out, html);
   console.log(`Wrote ${a.out}: ${doc.slides.length} slides`);
