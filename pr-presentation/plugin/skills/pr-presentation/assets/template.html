@@ -21,6 +21,12 @@ __REVEAL_CSS__
   --after-bg: #f1faf3;
   --ctx-bg: #f5f6f8;
   --tip-bg: rgba(44, 95, 214, .08);
+  --note-bg: #fff4e0;
+  --note-line: #e08a1e;
+  --note-ink: #9a5200;
+  --bug-bg: #fdeceb;
+  --bug-line: #d93a32;
+  --bug-ink: #a8231c;
   --tok-kw: #8a3fb8;
   --tok-type: #1f6f8b;
   --tok-str: #8a5a00;
@@ -66,6 +72,16 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
 .side.step { background: var(--before-bg); padding: 12px 16px; gap: 6px; }
 .side.step .label { text-transform: none; letter-spacing: 0; font-family: var(--font-code); font-size: 13px; }
 .step-arrow { color: var(--muted); font-size: 20px; line-height: 1; padding-left: 7px; }
+/* Closing slide: the open questions by kind, each with a link to the slide that holds its tip */
+.notes { display: flex; flex-direction: column; gap: 20px; max-width: 1100px; }
+.note-group { display: flex; flex-direction: column; gap: 8px; }
+.note-kind { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.note-kind small { text-transform: none; letter-spacing: 0; font-size: 14px; margin-left: 10px; }
+.note { font-size: 19px; line-height: 1.45; display: flex; gap: 12px; align-items: baseline; }
+.note .q { font-family: var(--font-code); font-size: 13px; color: var(--muted); flex-shrink: 0; }
+.note .text { flex: 1; min-width: 0; }
+.note a { font-size: 14px; color: var(--accent); white-space: nowrap; text-decoration: none; }
+.note a:hover, .note a:focus-visible { text-decoration: underline; }
 .sides { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; flex-shrink: 0; }
 .sides.single { grid-template-columns: 1fr; }
 .side { border-radius: 10px; padding: 16px 18px; min-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 14px; }
@@ -80,7 +96,8 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
 .chunk.recap .lines { opacity: .65; }
 .chunk .tag { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .chunk .lines { font-variant-ligatures: normal; font-family: var(--font-code); font-size: 15.5px; line-height: 1.5; }
-.chunk .ln { white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.55em; padding-left: 2ch; text-indent: -2ch; }
+/* A long line wraps only where breakLines allows it, and its next rows are indented two levels deeper */
+.chunk .ln { white-space: pre-wrap; overflow-wrap: break-word; min-height: 1.55em; padding-left: 4ch; text-indent: -4ch; }
 .gap { color: var(--muted); opacity: .5; }
 .chunk .ln.blank { min-height: .8em; }
 .chunk .ln.del { background: rgba(207, 34, 46, .13); }
@@ -98,8 +115,23 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
 #tooltip {
   position: fixed; z-index: 50; max-width: min(360px, calc(100vw - 32px)); pointer-events: none;
   background: var(--fg); color: var(--bg); font: 15px/1.45 var(--font-ui); padding: 8px 12px; border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, .18);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .12), 0 10px 28px rgba(0, 0, 0, .28); --flag-line: var(--fg); --flag-bg: var(--fg);
 }
+/* Review notes (open questions): a wavy underline on the code, red for a suspected bug and orange for the
+   other kinds, and a tooltip in the same color. Every tooltip has an arrow that points at its code */
+.tip.flag { text-decoration: underline wavy var(--flag-line); text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
+.tip.flag:hover, .tip.flag:focus-visible, .tip.flag.open { background: var(--flag-bg); }
+.flag.bug { --flag-line: var(--bug-line); --flag-bg: var(--bug-bg); }
+.flag.open-q { --flag-line: var(--note-line); --flag-bg: var(--note-bg); }
+#tooltip.flagged { color: var(--fg); background: var(--flag-bg); border: 1px solid var(--flag-line); }
+#tooltip.flagged b { font-weight: 600; color: var(--flag-ink); }
+#tooltip.flagged.bug { --flag-line: var(--bug-line); --flag-bg: var(--bug-bg); --flag-ink: var(--bug-ink); }
+#tooltip.flagged.open-q { --flag-line: var(--note-line); --flag-bg: var(--note-bg); --flag-ink: var(--note-ink); }
+#tooltip::before, #tooltip::after { content: ""; position: absolute; left: var(--arrow-x, 18px); border: 7px solid transparent; transform: translateX(-50%); }
+#tooltip::before { bottom: 100%; border-bottom-color: var(--flag-line); }
+#tooltip::after { bottom: calc(100% - 1.5px); border-bottom-color: var(--flag-bg); }
+#tooltip.up::before { bottom: auto; top: 100%; border-bottom-color: transparent; border-top-color: var(--flag-line); }
+#tooltip.up::after { bottom: auto; top: calc(100% - 1.5px); border-bottom-color: transparent; border-top-color: var(--flag-bg); }
 .lead code, #tooltip code { font-family: var(--font-code); font-size: .88em; white-space: nowrap; }
 .lead code { color: var(--fg); }
 .t-kw { color: var(--tok-kw); } .t-ty { color: var(--tok-type); } .t-st { color: var(--tok-str); }
@@ -389,6 +421,22 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
       t.parentNode.replaceChild(frag, t);
     });
   }
+  // A long line may wrap after "(", "," or "." and before an operator, never inside a name. <wbr> adds no
+  // characters, so copied code stays the same
+  function breakLines(node) {
+    var walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT), texts = [], tn;
+    while ((tn = walker.nextNode())) texts.push(tn);
+    texts.forEach(function (t) {
+      var parts = t.data.split(/(?<=[(,.[{])(?=\S)/);
+      // A text node can end at "(": the next name is often a highlight span of its own
+      var tail = /[(,.[{]$/.test(t.data);
+      if (parts.length < 2 && !tail) return;
+      var frag = document.createDocumentFragment();
+      parts.forEach(function (x, i) { if (i) frag.appendChild(document.createElement('wbr')); frag.appendChild(document.createTextNode(x)); });
+      if (tail) frag.appendChild(document.createElement('wbr'));
+      t.parentNode.replaceChild(frag, t);
+    });
+  }
   // The lines of a pane as the page shows them: member gaps added, indent removed, "..." marked
   function paneLines(chunks) {
     var all = [];
@@ -416,6 +464,7 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
   }
 
   var tipTexts = [];
+  var NOTE = /^((?:Suspected bug|Unexplained|Unused)(?:\s*\([^)]*\))?):\s*([\s\S]*)$/;
   // A side without code is left out, and the other side takes the full width. Unchanged context goes
   // into a neutral pane of its own below the changed code, so it is never boxed inside a colored pane;
   // so does code repeated from an earlier slide (recap), which supports the change rather than being it.
@@ -458,9 +507,10 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
           var t = src[r.line], li = start + r.line, wm = marks && marks[li];
           var mark = marks ? (wm ? markCls : '') : r.mark;
           d = el('div', 'ln' + (t.trim() ? '' : ' blank') + (mark ? ' ' + mark : ''));
-          d.style.paddingLeft = (t.match(/^\s*/)[0].length + 2) + 'ch';
+          d.style.paddingLeft = (t.match(/^\s*/)[0].length + 4) + 'ch';
           d.innerHTML = lineHtml(all[li], targets.filter(function (x) { return x.line === li; }));
           if (wm) wrapRanges(d, wm.ranges);
+          breakLines(d);
           if (urls[r.line]) {
             var a = el('a', 'src', '\u2197');
             a.href = urls[r.line]; a.target = '_blank'; a.rel = 'noopener';
@@ -471,7 +521,12 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
         if (plan) d.dataset.row = k + ':' + ri;
         lines.appendChild(d);
       });
-      lines.querySelectorAll('.tip').forEach(function (t) { t.dataset.tip = base + Number(t.dataset.tip); });
+      lines.querySelectorAll('.tip').forEach(function (t) {
+        t.dataset.tip = base + Number(t.dataset.tip);
+        var m = NOTE.exec(tipTexts[t.dataset.tip] || '');
+        // A review note is not an explanation: its own mark and color, red for a suspected bug
+        if (m) t.classList.add('flag', /^Suspected bug/.test(m[1]) ? 'bug' : 'open-q');
+      });
       node.appendChild(lines);
       side.appendChild(node);
     });
@@ -556,17 +611,62 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
   }
   slides.forEach(function (s) { deck.appendChild(conceptSection(s, panes(s))); });
 
+  // Closing slide: the open questions by kind. Each one links to the first slide that holds its tip.
+  var KINDS = [
+    ['Suspected bug', 'the code does something wrong in a case found by reading it, not by running it'],
+    ['Unexplained', 'a change, value or check without a reason in the code, the issues or the history'],
+    ['Unused', 'a check or change that no case reaches today, or that the explanation does not need']
+  ];
+  var open = data.open || [];
+  if (open.length) {
+    var nsec = el('section'), nbody = el('div', 'concept'), nhead = el('div', 'head');
+    nhead.appendChild(el('h2', null, 'Review notes'));
+    nbody.appendChild(nhead);
+    nbody.appendChild(el('p', 'lead', 'Questions that the code does not answer. Each one can show a problem in the PR; the author can settle it.'));
+    var notes = el('div', 'notes');
+    KINDS.forEach(function (kind) {
+      var items = open.filter(function (o) { return o.kind === kind[0]; });
+      if (!items.length) return;
+      var group = el('div', 'note-group'), label = el('div', 'note-kind', kind[0]);
+      label.appendChild(el('small', null, kind[1]));
+      group.appendChild(label);
+      items.forEach(function (o) {
+        var row = el('div', 'note'), t = el('span', 'text');
+        row.appendChild(el('span', 'q', (o.questions || []).join(', ')));
+        t.innerHTML = prose(o.text);
+        row.appendChild(t);
+        if (o.slide && slides[o.slide - 1]) {
+          var a = el('a', null, slides[o.slide - 1].title + ' \u2197');
+          a.href = '#';
+          a.addEventListener('click', function (e) { e.preventDefault(); Reveal.slide(o.slide); });
+          row.appendChild(a);
+        }
+        group.appendChild(row);
+      });
+      notes.appendChild(group);
+    });
+    nbody.appendChild(notes);
+    nsec.appendChild(nbody);
+    deck.appendChild(nsec);
+  }
+
   // Tooltips: hover or focus shows the tip; a tap or click keeps it open until the next tap elsewhere.
   var tooltip = el('div'); tooltip.id = 'tooltip'; tooltip.setAttribute('role', 'tooltip'); tooltip.hidden = true;
   document.body.appendChild(tooltip);
   var openTip = null;
   function showTip(t) {
-    tooltip.innerHTML = prose(tipTexts[Number(t.dataset.tip)] || '');
+    var text = tipTexts[Number(t.dataset.tip)] || '', m = NOTE.exec(text);
+    tooltip.className = m ? 'flagged ' + (/^Suspected bug/.test(m[1]) ? 'bug' : 'open-q') : '';
+    tooltip.innerHTML = m ? '<b>' + esc(m[1]) + ':</b> ' + prose(m[2]) : prose(text);
     tooltip.hidden = false;
     var r = t.getBoundingClientRect(), w = tooltip.offsetWidth, h = tooltip.offsetHeight;
     var left = Math.max(16, Math.min(r.left, window.innerWidth - w - 16));
-    var top = r.bottom + 8;
-    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
+    var top = r.bottom + 14, up = top + h > window.innerHeight - 8;
+    if (up) top = Math.max(8, r.top - h - 14);
+    tooltip.classList.toggle('up', up);
+    // The arrow points at the middle of the code, or near its start when the code is long
+    var x = Math.min(r.left + r.width / 2, r.left + 120) - left;
+    tooltip.style.setProperty('--arrow-x', Math.max(14, Math.min(x, w - 14)) + 'px');
     tooltip.style.left = left + 'px'; tooltip.style.top = top + 'px';
   }
   function closeTip() { if (openTip) openTip.classList.remove('open'); openTip = null; tooltip.hidden = true; }
@@ -586,12 +686,12 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
   function fitSlides() {
     document.querySelectorAll('.concept').forEach(function (body) {
       // Reveal hides sections (and the stack around a part) before showing them; make them measurable
-      var size = 15.5, shown = [];
+      var size = 15.5, note = 19, shown = [];
       for (var n = body.parentNode; n && n.tagName === 'SECTION'; n = n.parentNode) { shown.push([n, n.style.display]); n.style.display = 'block'; }
       syncRows(body);
-      while (body.scrollHeight > body.clientHeight + 1 && size > 13) {
-        size -= 0.5;
-        body.querySelectorAll('.chunk .lines').forEach(function (l) { l.style.fontSize = size + 'px'; });
+      while (body.scrollHeight > body.clientHeight + 1 && (size > 13 || note > 14)) {
+        if (size > 13) { size -= 0.5; body.querySelectorAll('.chunk .lines').forEach(function (l) { l.style.fontSize = size + 'px'; }); }
+        if (note > 14) { note -= 0.5; body.querySelectorAll('.note').forEach(function (n) { n.style.fontSize = note + 'px'; }); }
         syncRows(body);
       }
       shown.forEach(function (x) { x[0].style.display = x[1]; });
@@ -627,7 +727,9 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
     var chats = {}, ctl = null, key = null;
     function where() { return { h: Reveal.getIndices().h }; }
     function screenOf(w) {
-      return w.h === 0 ? { title: pr.title } : { slide: slides[w.h - 1], title: slides[w.h - 1].title };
+      if (w.h === 0) return { title: pr.title };
+      if (w.h > slides.length) return { title: 'Review notes', notes: true };
+      return { slide: slides[w.h - 1], title: slides[w.h - 1].title };
     }
     function context(w) {
       var sc = screenOf(w), lines = [
@@ -672,6 +774,9 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
             lines.push((c.context ? '(unchanged context)\n' : '') + '```\n' + c.code + '\n```');
           });
         });
+      } else if (sc.notes) {
+        lines.push('', 'The reader is on the closing slide, which lists the open questions by kind:');
+        (data.open || []).forEach(function (o) { lines.push('- ' + o.kind + ' (' + (o.questions || []).join(', ') + '): ' + o.text); });
       } else {
         lines.push('', 'The reader is on the title slide.');
       }

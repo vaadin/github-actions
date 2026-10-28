@@ -41,8 +41,8 @@ Deliberately hard-coded, each a one-line edit:
 | Session timeout | `SESSION_TIMEOUT_MS` in [run-presentation.mjs](run-presentation.mjs) | 30 min |
 | Claude Code version | Install step in [action.yml](action.yml) | pinned exact |
 
-The reader and builder subagents run on the `sonnet` alias that the skill
-asks for, as that Claude Code version resolves it.
+The reader subagent runs on the `sonnet` alias that the skill asks for, as
+that Claude Code version resolves it. Scripts build the deck from the plan.
 
 ## Requirements
 

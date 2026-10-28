@@ -5,7 +5,7 @@
 //   build.mjs --pr pr.json --slides slides.json [--src src] [--context WORK] --out page.html
 //
 // pr.json:     written by collect.mjs: the `gh pr view` fields plus mergeBaseOid
-// slides.json: see references/builder.md next to SKILL.md
+// slides.json: written by hunks.mjs build from plan.md; see references/slides-json.md next to SKILL.md
 // src:         the worktrees from collect.mjs (src/base, src/head); member lines then link to their line on GitHub
 // WORK:        the work folder; its PR context, notes, diff, changed files and the files that chain.md and
 //              plan.md name go into the page for the "Ask Claude" chat
@@ -23,6 +23,7 @@ const TEMPLATE = join(ASSETS, 'template.html');
 const REVEAL_CSS = [join(ASSETS, 'reveal', 'reveal.min.css'), join(ASSETS, 'reveal', 'simple.min.css')];
 
 const CHUNK_KEYS = new Set(['code', 'caption', 'context', 'file']);
+const OPEN_KINDS = ['Suspected bug', 'Unexplained', 'Unused'];
 const GAP_RE = /(?<![\w$.])\.\.\.(?![\w$.])/;
 
 const splitlines = (text) => { const a = text.split(/\r?\n/); if (a.length && a.at(-1) === '') a.pop(); return a; };
@@ -128,6 +129,15 @@ function validate(doc) {
   if (!nonEmpty(doc.summary)) errors.push("'summary' is missing");
   const slides = doc.slides;
   if (!Array.isArray(slides) || !slides.length) return [...errors, "'slides' must be a non-empty array"];
+  const open = doc.open ?? [];
+  if (!Array.isArray(open)) errors.push("'open' must be a list of open questions");
+  else open.forEach((o, i) => {
+    if (!isObj(o) || !OPEN_KINDS.includes(o.kind) || !Array.isArray(o.questions) || !nonEmpty(o.text)) {
+      errors.push(`open[${i}]: needs 'kind' (${OPEN_KINDS.join(', ')}), 'questions' and 'text'`);
+    } else if ('slide' in o && !(Number.isInteger(o.slide) && o.slide >= 1 && o.slide <= slides.length)) {
+      errors.push(`open[${i}].slide: must be the number of a slide, from 1`);
+    }
+  });
   slides.forEach((sl, i) => {
     const where = `slides[${i}]`;
     for (const f of ['title', 'text']) if (!nonEmpty(sl[f])) errors.push(`${where}: missing '${f}'`);
@@ -313,6 +323,7 @@ function main() {
   const data = {
     pr: { number: pr.number, title: pr.title, url: pr.url, repo: pr.url.split('/').slice(3, 5).join('/') },
     summary: doc.summary,
+    open: doc.open || [],
     slides: doc.slides,
   };
   if (work) data.chat = chatContext(work, paths);
