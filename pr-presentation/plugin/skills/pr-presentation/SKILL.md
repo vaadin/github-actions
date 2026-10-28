@@ -1,28 +1,27 @@
 ---
 name: pr-presentation
-description: Turn a GitHub pull request into a reveal.js slide deck that explains the change from its code, not from the PR description: each hunk raises questions, the code answers them, and the slides tell that chain step by step (background code, bugs as steps, fixes as old and new code, tooltips). The title slide says why the change is needed, from the linked issues. Questions the code cannot answer stay as review notes by kind (suspected bug, unexplained, unused) on a closing slide. Use when the user wants a high-level or "zoomed out" view of a PR, a guided tour or presentation of it, or an easier way to read a diff, even if they only share a PR link.
+description: Turn a GitHub pull request into a reveal.js slide deck that explains the change from its code, not from the PR description: each hunk raises questions, the code answers them, and the slides tell that chain step by step (background code, bugs as steps, fixes as old and new code, tooltips). Questions the code cannot answer stay as review notes by kind (suspected bug, unexplained, unused) on a closing slide. Use when the user wants a high-level or "zoomed out" view of a PR, a guided tour or presentation of it, or an easier way to read a diff, even if they only share a PR link.
 argument-hint: <pr-url> <work-dir>
 allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(gh *), Bash(git *), Bash(mkdir *), Bash(node *)
 ---
 
 ## The idea
 
-**Code first.** The code is the best specification of the change. Do not trust what the author says about the PR: the description, the commit messages and the review comments tell what the author thinks the change does, so do not read them. Answer every question from the code in the checkouts under `<WORK>/src`: the diff, the code around it, callers, definitions, types, names. Tests only confirm an answer. Two things send you further, to the linked and related issues in `context.md` and to the git history of the touched lines in `src/base`: the why question, which asks what the change is for and which the code rarely answers, and any other question that the code cannot answer. An answer from there is weaker than one from the code: say in "Looked at" where it comes from, and confirm in the code what you can. What this session already knows about the PR, from the user or from earlier work, does not count.
+**Code first.** The code is the best specification of the change. Do not trust what the author says about the PR: the description, the commit messages and the review comments tell what the author thinks the change does, so do not read them. Answer every question from the code in the checkouts under `<WORK>/src`: the diff, the code around it, callers, definitions, types, names. Tests only confirm an answer. Only a question that the code cannot answer sends you further: to the linked and related issues in `context.md`, and to the git history of the touched lines in `src/base`. An answer from there is weaker than one from the code: say in "Looked at" where it comes from, and confirm in the code what you can. What this session already knows about the PR, from the user or from earlier work, does not count.
 
 **Concepts.**
 
 - Hunk: one changed block of the diff, `H01`, `H02` and so on.
 - Question: what a hunk or an answer leaves unexplained.
-- Why question: Q1, what the change is for: the need or the problem, and where it is stated. The issues may answer it.
 - Answer: one to three sentences, with the file and lines that prove them.
 - Open question: a question that the code, the issues and the history leave unanswered, or that the code answers in a way that looks wrong. It has a kind: suspected bug, unexplained or unused. It stays in the deck as a review note, in a tip on the code and on the closing slide. It marks a place where the implementation must be trusted instead of understood, so it can show a problem in the PR.
-- Chain: the facts in the order a new reader needs them: why the change is needed, how the code works, what was wrong, how each change corrects it.
+- Chain: the facts in the order a new reader needs them: how the code works, what was wrong, how each change corrects it.
 - Area: code outside the change that the chain needs.
 - New thing: a name or concept that no earlier slide explained, also a term from outside the code.
 
 **Logical chain.** The deck tells the chain: one or more facts per slide, with the code that proves them. Each fact follows from the facts before it and refers to the questions that prove it. Each code hunk is part of the chain. A hunk that no fact needs is an open question.
 
-**Questions.** Start with the why question, then the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. Answers raise new questions, also about unchanged code. Ask those too: they show which areas the reader must know.
+**Questions.** Start from the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. Answers raise new questions, also about unchanged code. Ask those too: they show which areas the reader must know.
 
 **Answers.** Answer each question from the code. Read the lines, then write the answer and where you found it. Do not answer from memory. If the code cannot answer, check the issues and the history of the lines. If they cannot either, do not guess: record an open question with its kind. Stop when every question has an answer or is open.
 
@@ -59,38 +58,31 @@ Ask and answer as described above. Write `<WORK>/chain.md` in this format:
 ````markdown
 ## Questions
 
-### Q1 (from PR): Why is this change needed?
-- Looked at: context.md "## Linked issue #7731", src/base/packages/select/src/vaadin-select-base-mixin.js L489-491
-- Answer: issue #7731 reports that a screen reader announces the selected item of a select twice. The copy of the item in the field has `aria-selected`, which the code confirms.
-- New questions: Q2
-
-### Q2 (from H01): Why does the old code set `labelItem.selected = true`?
+### Q1 (from H01): Why does the old code set `labelItem.selected = true`?
 - Looked at: src/base/packages/select/src/vaadin-select-base-mixin.js L489-491, src/base/packages/vaadin-lumo-styles/src/components/select-value-button.css L34-37
 - Answer: only the copy of the selected item gets `selected`. The Lumo rule `::slotted(*:not([selected]))` uses this to find the placeholder item.
-- New questions: Q3
+- New questions: Q2
 
-### Q3 (from Q2): What does setting `selected` do on an item?
+### Q2 (from Q1): What does setting `selected` do on an item?
 - Looked at: src/base/packages/item/src/vaadin-item-mixin.js L30-34, L104-106
 - Answer: `selected` has the observer `_selectedChanged`, which writes `aria-selected`.
 - New questions: none
 
 ## Areas
 
-- The `selected` property of an item and its observer (src/base/packages/item/src/vaadin-item-mixin.js L30-34, L104-106): Q3
+- The `selected` property of an item and its observer (src/base/packages/item/src/vaadin-item-mixin.js L30-34, L104-106): Q2
 
 ## Chain
 
-1. A screen reader announces the selected item twice, because the copy in the field has `aria-selected`. (Q1)
-2. The field shows one item: a copy of the selected item, or a placeholder item. (Q5)
-3. `__appendValueItemElement` removes `aria-selected` from the copy. (Q4)
+1. The field shows one item: a copy of the selected item, or a placeholder item. (Q4)
+2. `__appendValueItemElement` removes `aria-selected` from the copy. (Q3)
 
 ## Open questions
 
 - Unused (Q6): `__attachSelectedItem` still checks `item.hasAttribute('selected')`, but no caller passes an item with the attribute.
 ````
 
-- Q1 is the why question: what the change is for, and where that is stated. Its "Looked at" names the `context.md` section, or the commits in the history of `src/base`, and the code that confirms it. If nothing states the need, Q1 is open, kind unexplained, and the deck says so.
-- Each other question names the hunk or the question that raised it.
+- Each question names the hunk or the question that raised it.
 - "Areas" lists the code outside the change that the chain needs, with the questions that need it.
 - Keep only the facts the reader needs to follow what was wrong and how the change corrects it. If the change removes an attribute that must not be there, the chain needs the code that adds and removes it, not the reason the attribute is wrong in the accessibility standard.
 - Open questions have a kind, the first words of the item:
@@ -115,15 +107,14 @@ Before you put code on a slide, open the files from "Looked at" again, choose th
 
 ### The reader
 
-The reader reads the deck alone, in a browser, before the diff. Read `<SKILL>/references/reader.md` before you plan, and the files that its section "The reader" tells the reader to read. That section lists what the reader knows and what the deck must explain: a name from "Knows without explanation" is not a new thing and needs no tip, a name from "Does not know" gets a tip where it first appears. Every word the reader sees is yours: the summary, the why, the titles, the slide sentences and the tips.
+The reader reads the deck alone, in a browser, before the diff. Read `<SKILL>/references/reader.md` before you plan, and the files that its section "The reader" tells the reader to read. That section lists what the reader knows and what the deck must explain: a name from "Knows without explanation" is not a new thing and needs no tip, a name from "Does not know" gets a tip where it first appears. Every word the reader sees is yours: the summary, the titles, the slide sentences and the tips.
 
 ### Slides
 
-- The title slide shows the summary and the why. The why comes from Q1: what the change is for, and the issue that states it, as `#7731` or `vaadin/platform#1234`; the page links it. If Q1 is open, the why says that nothing states the need.
 - Put the slides in the order of the chain. Each slide shows one or more facts and the lines from "Looked at" of their questions.
 - Show only what the chain needs. If a slide needs a new fact, add its question and answer to `chain.md` first.
 - An area gets a slide of its own only if the chain needs it before the first change, and only the lines the chain uses.
-- Show each open question in a tip on the code it is about, starting with its kind and its questions: `Suspected bug (Q11): ...`, `Unexplained (Q17): ...`, `Unused (Q6, Q15): ...`. It is a review note for the author, not part of the explanation: the reader check skips it, and it is not a new thing. The page marks its code with a wavy underline, red for a suspected bug and orange for the other kinds, and shows the tip in the same color. The closing slide "Review notes" lists every open question of `chain.md` by kind, with a link to the slide that holds its tip. An open question without code on a slide, such as an open why, is only on the closing slide.
+- Show each open question in a tip on the code it is about, starting with its kind and its questions: `Suspected bug (Q11): ...`, `Unexplained (Q17): ...`, `Unused (Q6, Q15): ...`. It is a review note for the author, not part of the explanation: the reader check skips it, and it is not a new thing. The page marks its code with a wavy underline, red for a suspected bug and orange for the other kinds, and shows the tip in the same color. The closing slide "Review notes" lists every open question of `chain.md` by kind, with a link to the slide that holds its tip. An open question without code on a slide is only on the closing slide.
 - Do not show tests, snapshots or screenshots.
 
 Kinds of slides:
@@ -167,7 +158,6 @@ Write `<WORK>/plan.md` in this format. Refer to code by file and lines. Do not c
 
 ````markdown
 Summary: a maximum of three short sentences for the title slide.
-Why: one or two sentences: what the change is for, and the issue that states it.
 Omitted: none                                    <- or code hunks that are on no slide, each with its reason
 
 ## 1. <title>
@@ -213,7 +203,7 @@ Check, correct each problem, repeat until it shows none:
 node <SKILL>/scripts/hunks.mjs plan --work <WORK>
 ```
 
-Then read only the why, the titles and the slide texts in order. They must tell the chain without the code.
+Then read only the titles and the slide texts in order. They must tell the chain without the code.
 
 ## 5. Read (Sonnet agent)
 
