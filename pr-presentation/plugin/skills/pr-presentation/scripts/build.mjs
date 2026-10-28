@@ -129,7 +129,6 @@ function validate(doc) {
   if (!nonEmpty(doc.summary)) errors.push("'summary' is missing");
   const slides = doc.slides;
   if (!Array.isArray(slides) || !slides.length) return [...errors, "'slides' must be a non-empty array"];
-  if ('why' in doc && !nonEmpty(doc.why)) errors.push("'why' must be a non-empty string");
   const open = doc.open ?? [];
   if (!Array.isArray(open)) errors.push("'open' must be a list of open questions");
   else open.forEach((o, i) => {
@@ -324,7 +323,6 @@ function main() {
   const data = {
     pr: { number: pr.number, title: pr.title, url: pr.url, repo: pr.url.split('/').slice(3, 5).join('/') },
     summary: doc.summary,
-    why: doc.why || '',
     open: doc.open || [],
     slides: doc.slides,
   };

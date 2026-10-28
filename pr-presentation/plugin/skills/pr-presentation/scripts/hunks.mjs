@@ -5,23 +5,21 @@
 //   hunks.mjs split    --diff pr.diff --out <WORK>
 //       Writes <WORK>/hunks.json and <WORK>/annotated.md: one "## H07" section per hunk with its diff.
 //   hunks.mjs chain    --work <WORK>
-//       Checks <WORK>/chain.md: a why question "(from PR)", every code hunk raises a question, every question has
-//       an answer from the code or is open, every open question has a kind, and every link of the chain refers to
-//       the questions that prove it.
+//       Checks <WORK>/chain.md: every code hunk raises a question, every question has an answer from the code or
+//       is open, every open question has a kind, and every link of the chain refers to the questions that prove it.
 //   hunks.mjs plan     --work <WORK>
-//       Checks <WORK>/plan.md: a "Why:" line, every code hunk ID under "Hunks:" or "Omitted:" with a reason (tests
+//       Checks <WORK>/plan.md: every code hunk ID under "Hunks:" or "Omitted:" with a reason (tests
 //       are not shown), tips of at most 20 words whose keys are in the code of their side, open-question tips that
 //       name an open question of chain.md with the same kind, at most 4 new things per slide, each name in
 //       Introduces in the slide's code, line ranges that start at real code, and each slide estimated to fit one screen.
 //   hunks.mjs reader   --work <WORK>
-//       Writes <WORK>/reader/slides/: the deck as the reader sees it (title slide with the why, titles, sentences,
-//       code, tips), from plan.md, without the notes, one numbered file per slide. The reader check of the skill
+//       Writes <WORK>/reader/slides/: the deck as the reader sees it (title slide, titles, sentences, code, tips), from plan.md, without the notes, one numbered file per slide. The reader check of the skill
 //       sees only this folder, one file at a time. Removes a <WORK>/reader/reading.md left by an earlier reader.
 //       Also writes <WORK>/reader.md, the whole deck, for the orchestrator.
 //   hunks.mjs build    --work <WORK>
 //       Writes <WORK>/slides.json from plan.md and chain.md, the input of build.mjs: the code of each line range as
 //       the deck shows it (no comment lines, one "..." per skipped range, the common indentation of each file
-//       removed), the tips, the why, and the open questions with the slide that holds their tip.
+//       removed), the tips, and the open questions with the slide that holds their tip.
 //       See references/slides-json.md.
 //   hunks.mjs slides   --work <WORK>
 //       Checks which changed lines of each hunk appear in the code of <WORK>/slides.json.
@@ -301,7 +299,7 @@ function slideHeight(text, sides) {
 }
 
 const planSlides = (text) => text.split(/^(?=## )/m).filter((s) => s.startsWith('## '));
-// The part of plan.md before the first slide: Summary, Why, Omitted
+// The part of plan.md before the first slide: Summary, Omitted
 const planHead = (text) => text.split(/^(?=## )/m)[0];
 // The value of a "Name: value" line in a block of the plan
 const planLine = (block, name) => (block.match(new RegExp(`^${name}:(.*)$`, 'm')) || ['', ''])[1].trim();
@@ -391,7 +389,7 @@ function openQuestions(text) {
   return { items, bad };
 }
 
-// What the planner must keep: every hunk placed, tip length and keys, new things per slide, the why.
+// What the planner must keep: every hunk placed, tip length and keys, new things per slide.
 function cmdPlan(args) {
   const work = args.work;
   const hunks = JSON.parse(read(join(work, 'hunks.json')));
@@ -400,10 +398,6 @@ function cmdPlan(args) {
   const open = isFile(chainFile) ? openQuestions(read(chainFile)).items : null;
   let problems = 0;
   const head = planHead(text);
-  if (!planLine(head, 'Why')) {
-    console.log("NO WHY: write 'Why: ...' after Summary, from the why question of the chain");
-    problems += 1;
-  }
   const placed = new Set();
   for (const m of text.matchAll(/^(?:Hunks|Omitted):(.*)$/gm)) for (const i of m[1].match(/\bH\d{2,}\b/g) || []) placed.add(i);
   for (const h of hunks) {
@@ -479,7 +473,7 @@ function cmdPlan(args) {
       }
     }
   }
-  console.log(`${problems} problem(s): a why, every code hunk on a slide or omitted with a reason, tips at most ${TIP_WORDS} words ` +
+  console.log(`${problems} problem(s): every code hunk on a slide or omitted with a reason, tips at most ${TIP_WORDS} words ` +
     `with keys in the code, open-question tips from chain.md, at most ${MAX_NEW} new things per slide, names in Introduces in the code, each slide fits one screen`);
   process.exit(problems ? 1 : 0);
 }
@@ -490,12 +484,11 @@ function cmdReader(args) {
   const text = read(join(work, 'plan.md'));
   const head = planHead(text);
   const summary = planLine(head, 'Summary');
-  const why = planLine(head, 'Why');
   const folder = join(work, 'reader', 'slides');
   mkdirSync(folder, { recursive: true });
   for (const old of readdirSync(folder)) if (old.endsWith('.md')) rmSync(join(folder, old));
   rmSync(join(work, 'reader', 'reading.md'), { force: true });
-  const files = [['00-title.md', ['# Title slide', '', summary, '', ...(why ? [`Why: ${why}`, ''] : [])]]];
+  const files = [['00-title.md', ['# Title slide', '', summary, '']]];
   planSlides(text).forEach((slide, idx) => {
     const n = idx + 1;
     const title = slideTitle(slide);
@@ -547,10 +540,9 @@ function cmdBuild(args) {
   const chainFile = join(work, 'chain.md');
   const open = isFile(chainFile) ? openQuestions(read(chainFile)).items : [];
   const problems = [];
-  const doc = { summary: plain(planLine(head, 'Summary')), why: plain(planLine(head, 'Why')), omitted: parseOmitted(planLine(head, 'Omitted')),
+  const doc = { summary: plain(planLine(head, 'Summary')), omitted: parseOmitted(planLine(head, 'Omitted')),
     open: open.map((o) => ({ ...o, text: plain(o.text) })), slides: [] };
   if (!doc.summary) problems.push("NO SUMMARY: write 'Summary: ...' at the top of plan.md");
-  if (!doc.why) delete doc.why;
   const tipSlide = {};
   planSlides(text).forEach((slide, idx) => {
     const n = idx + 1;
@@ -600,8 +592,8 @@ function cmdBuild(args) {
   console.log(`Wrote ${out}: ${doc.slides.length} slides, ${doc.open.length} open question(s), ${Object.keys(doc.omitted).length} omitted hunk(s)`);
 }
 
-// What the investigation must keep: a why question, every code hunk raises a question, every question has an
-// answer or is open with a kind, and every link of the chain refers to the questions that prove it.
+// What the investigation must keep: every code hunk raises a question, every question has an answer or is
+// open with a kind, and every link of the chain refers to the questions that prove it.
 function cmdChain(args) {
   const work = args.work;
   const hunks = JSON.parse(read(join(work, 'hunks.json')));
@@ -611,11 +603,7 @@ function cmdChain(args) {
   const questions = [...(sections['Questions'] || '').matchAll(/^### (Q\d+) \(from ([^)]*)\):.*?\n([\s\S]*?)(?=^### |^## |(?![\s\S]))/gm)]
     .map((m) => [m[1], m[2], m[3]]);
   if (!questions.length) {
-    console.log("NO QUESTIONS: write them under '## Questions' as '### Q1 (from PR): ...' and '### Q2 (from H01): ...'");
-    problems += 1;
-  }
-  if (!questions.some(([, src]) => /\bPR\b/.test(src))) {
-    console.log("NO WHY: start with '### Q1 (from PR): Why is this change needed?', answered from the issues in context.md or the history, or open as Unexplained");
+    console.log("NO QUESTIONS: write them under '## Questions' as '### Q1 (from H01): ...'");
     problems += 1;
   }
   const openText = sections['Open questions'] || '';

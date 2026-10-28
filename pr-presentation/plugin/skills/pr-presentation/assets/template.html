@@ -60,9 +60,6 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
 .title-slide .meta { color: var(--muted); font-size: 18px; margin-bottom: 18px; }
 .title-slide .meta a { color: inherit; }
 .title-slide .lead { font-size: 19px; line-height: 1.55; color: var(--muted); max-width: 40em; }
-.title-slide .why { font-size: 19px; line-height: 1.55; max-width: 40em; margin-top: 14px; }
-.title-slide .why b { font-weight: 600; }
-.title-slide .why a { color: var(--accent); }
 
 .concept { height: 100%; display: flex; flex-direction: column; gap: 18px; }
 .concept .lead { font-size: 21px; line-height: 1.5; color: var(--muted); max-width: 60em; }
@@ -200,12 +197,6 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
   }
   // Prose (slide sentence, summary, tooltips) marks code with backticks, as in Markdown
   function prose(s) { return esc(s).replace(/(`+)\s*([^`]+?)\s*\1/g, '<code>$2</code>'); }
-  // "#123" and "owner/repo#123" in escaped prose become links to GitHub; issues/ also opens a pull request
-  function issueLinks(html) {
-    return html.replace(/(?<![\w\/#&])(?:([\w.-]+\/[\w.-]+))?#(\d+)\b/g, function (m, r, n) {
-      return '<a href="https://github.com/' + (r || esc(pr.repo)) + '/issues/' + n + '" target="_blank" rel="noopener">' + m + '</a>';
-    });
-  }
   function el(tag, cls, text) {
     var e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -549,7 +540,6 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
   title.appendChild(meta);
   title.appendChild(el('h1', null, pr.title));
   if (data.summary) { var sum = el('p', 'lead'); sum.innerHTML = prose(data.summary); title.appendChild(sum); }
-  if (data.why) { var why = el('p', 'why'); why.innerHTML = '<b>Why: </b>' + issueLinks(prose(data.why)); title.appendChild(why); }
   titleSec.appendChild(title);
   deck.appendChild(titleSec);
   // One screen per slide, all horizontal. A pane left empty is left out.
@@ -753,7 +743,6 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; }
         'Answer plainly and to the point. Use Markdown; put code names in backticks.',
         '', 'PR: ' + pr.repo + '#' + pr.number + ' "' + pr.title + '" ' + pr.url];
       if (data.summary) lines.push('Summary: ' + data.summary);
-      if (data.why) lines.push('Why: ' + data.why);
       var chat = data.chat || { docs: [], files: [], omitted: [] };
       chat.docs.forEach(function (d) {
         lines.push('', '<document name="' + d.name + '" about="' + d.about + '">', d.text.replace(/\n$/, ''), '</document>');

@@ -5,7 +5,6 @@
 ```json
 {
   "summary": "A maximum of three short sentences for the title slide.",
-  "why": "What the change is for, and the issue that states it, such as #7731 or vaadin/platform#1234.",
   "omitted": {"H14": "Why this code hunk is on no slide."},
   "open": [
     {"kind": "Suspected bug", "questions": ["Q11"], "text": "One to three sentences from chain.md.", "slide": 9}
@@ -42,7 +41,7 @@
 
 ## Title and closing slide
 
-- `summary` and `why` are the title slide. In `why`, `#12` and `owner/repo#12` become links to GitHub.
+- `summary` is the title slide.
 - `open` is the closing slide "Review notes": the open questions of `chain.md` by kind. `kind` is `Suspected bug`, `Unexplained` or `Unused`. `slide` is the number of the first slide, from 1, whose tip starts with the kind and one of the `questions`; the page links to it. An item without `slide` is listed without a link.
 - `omitted` is shown by `hunks.mjs slides`, not on the page.
 

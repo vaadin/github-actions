@@ -46,7 +46,7 @@ After the last slide, read `<NOTES>` once more and add the **Not needed** items:
 
 A tooltip that starts with "Suspected bug", "Unexplained" or "Unused" is a review note for the author of the change, not part of the explanation. Skip it: do not report it as not needed, and do not report a term that appears only in such a tooltip.
 
-Report only what stops the reader from following what was wrong and how the change corrects it. Do not report questions that only add background. Do not report a term that a tooltip on the same slide explains. Do not report style or design. The title slide is a summary and the reason for the change, before all explanations: report a term from it only if no slide explains it, so write its section last, in the "Not needed" pass. Its "Why" line may name an issue; the reader cannot open it, so the line must say what the change is for on its own.
+Report only what stops the reader from following what was wrong and how the change corrects it. Do not report questions that only add background. Do not report a term that a tooltip on the same slide explains. Do not report style or design. The title slide is a summary that comes before all explanations: report a term from it only if no slide explains it, so write its section last, in the "Not needed" pass.
 
 ## Output
 
