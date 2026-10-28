@@ -96,7 +96,7 @@ runs:
     - name: Install Claude Code
       if: inputs.anthropic-api-key != '' && inputs.dry-run != 'true'
       shell: bash
-      run: npm install -g @anthropic-ai/claude-code
+      run: npm install -g --allow-scripts=@anthropic-ai/claude-code @anthropic-ai/claude-code
 
     - name: Configure git
       shell: bash
