@@ -83,7 +83,7 @@ runs:
 
     - name: Install Claude Code
       shell: bash
-      run: npm install -g @anthropic-ai/claude-code@2.1.235
+      run: npm install -g --allow-scripts=@anthropic-ai/claude-code @anthropic-ai/claude-code@2.1.235
 
     - name: Run Claude Code review
       id: review
