@@ -1,20 +1,20 @@
 ---
 name: pr-presentation
-description: Turn a GitHub pull request into a reveal.js slide deck that explains the change from its code, not from the PR description: each hunk raises questions, the code answers them, and the slides tell that chain step by step (background code, bugs as steps, fixes as old and new code, tooltips). Questions the code cannot answer are reported as possible problems in the PR. This copy runs in CI: the action collects the PR into the work folder before the session starts.
-argument-hint: <work-dir>
-allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(mkdir *), Bash(node *)
+description: Turn a GitHub pull request into a reveal.js slide deck that explains the change from its code, not from the PR description: each hunk raises questions, the code answers them, and the slides tell that chain step by step (background code, bugs as steps, fixes as old and new code, tooltips). Questions the code cannot answer are reported as possible problems in the PR. Use when the user wants a high-level or "zoomed out" view of a PR, a guided tour or presentation of it, or an easier way to read a diff, even if they only share a PR link.
+argument-hint: <pr-url> <work-dir>
+allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(gh *), Bash(git *), Bash(mkdir *), Bash(node *)
 ---
 
 ## The idea
 
-**Code first.** The code is the best specification of the change. Do not trust what the author says about the PR: the description, the commit messages and the review comments tell what the author thinks the change does, so do not read them. Answer every question from the code in the checkouts under `<WORK>/src`: the diff, the code around it, callers, definitions, types, names. Tests only confirm an answer. Only a question that the code cannot answer sends you further: to the linked and related issues in `context.md`. An answer from there is weaker than one from the code: say in "Looked at" where it comes from, and confirm in the code what you can. What you know about the PR or the repository from elsewhere does not count.
+**Code first.** The code is the best specification of the change. Do not trust what the author says about the PR: the description, the commit messages and the review comments tell what the author thinks the change does, so do not read them. Answer every question from the code in the checkouts under `<WORK>/src`: the diff, the code around it, callers, definitions, types, names. Tests only confirm an answer. Only a question that the code cannot answer sends you further: to the linked and related issues in `context.md`, and to the git history of the touched lines in `src/base`. An answer from there is weaker than one from the code: say in "Looked at" where it comes from, and confirm in the code what you can. What this session already knows about the PR, from the user or from earlier work, does not count.
 
 **Concepts.**
 
 - Hunk: one changed block of the diff, `H01`, `H02` and so on.
 - Question: what a hunk or an answer leaves unexplained.
 - Answer: one to three sentences, with the file and lines that prove them.
-- Open question: a question that neither the code nor the issues can answer. It stays in the deck as a review note. It marks a place where the implementation must be trusted instead of understood, so it can show a problem in the PR.
+- Open question: a question that neither the code nor the issues and history can answer. It stays in the deck as a review note. It marks a place where the implementation must be trusted instead of understood, so it can show a problem in the PR.
 - Chain: the facts in the order a new reader needs them: how the code works, what was wrong, how each change corrects it.
 - Area: code outside the change that the chain needs.
 - New thing: a name or concept that no earlier slide explained, also a term from outside the code.
@@ -23,22 +23,35 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(mkdir *), Bash(node *)
 
 **Questions.** Start from the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. Answers raise new questions, also about unchanged code. Ask those too: they show which areas the reader must know.
 
-**Answers.** Answer each question from the code. Read the lines, then write the answer and where you found it. Do not answer from memory. If the code cannot answer, check the issues. If they cannot either, do not guess: record an open question. Stop when every question has an answer or is open.
+**Answers.** Answer each question from the code. Read the lines, then write the answer and where you found it. Do not answer from memory. If the code cannot answer, check the issues and the history of the lines. If they cannot either, do not guess: record an open question. Stop when every question has an answer or is open.
 
-Three steps do this work. Two agents do the rest: a reader that sees nothing but the slides, and a builder that turns the plan into the deck. Start each agent in the foreground (`run_in_background: false`) and wait for its reply. Do not continue an agent with `SendMessage`: start a new one. The steps pass their results in files under `<WORK>`. `<SKILL>` is the base directory of this skill, printed as "Base directory for this skill" when it is invoked. `$0` is `<WORK>`, the folder for all files of the run. If the argument is missing, stop and report it.
+Four steps do this work. Two agents do the rest: a reader that sees nothing but the slides, and a builder that turns the plan into the deck. Start each agent in the foreground (`run_in_background: false`) and wait for its reply. Do not continue an agent with `SendMessage`: start a new one. The steps pass their results in files under `<WORK>`. `<SKILL>` is the base directory of this skill, printed as "Base directory for this skill" when it is invoked. `$0` is the PR URL. `$1` is `<WORK>`, the folder for all files of the run; create it if it does not exist. If an argument is missing, stop and report it.
 
-**Output.** The only result is the file `<WORK>/deck.html`. Nobody reads your replies and nobody answers questions during the run. When step 5 is done, stop with an empty reply: do not summarize the deck. If a step cannot continue, stop and report why in one sentence.
+**Output.** The only result is the file `<WORK>/deck.html`. Nobody reads your replies and nobody answers questions during the run. When step 6 is done, stop with an empty reply: do not summarize the deck. If a step cannot continue, stop and report why in one sentence.
 
-## 1. Inputs
+## 1. Collect
 
-`<WORK>` holds the PR, collected before this session started:
+```bash
+node <SKILL>/scripts/collect.mjs --pr <PR> [--repo <owner/repo>] --out <WORK>
+```
+
+GitHub is asked only for the PR metadata and the linked issues. The code comes from the local checkout: the repository of the current directory, when one of its remotes is the PR's repository. For another checkout, pass `--root <path>`. If the current directory is not in a checkout of the PR's repository and no `--root` is given, stop and report it. The script fetches the base branch and the PR head and adds two git worktrees under `<WORK>/src`.
+
+`<WORK>` holds:
 
 - `src/base/`, `src/head/`: the whole repository at the merge base of the PR and at its head. Read and search them freely; the deck can show any file from them. Do not change them.
 - `context.md`: read only `## Linked issue` and `## Related issue`. The other sections are the PR description, commits and comments.
 - `pr.json`, `pr.diff`. Do not read `body` in `pr.json`: it is the PR description.
-- `hunks.json`, `annotated.md`: the diff split into hunks. A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in diff order across all files, `H01`, `H02` and so on. Each hunk has a kind from its path: `code`, `test`, `screenshot` or `generated`. Only `code` hunks must raise a question and be on a slide. `annotated.md` is the diff with one `## H07 ...` section per hunk. Read it to see the hunks.
 
-## 2. Investigate
+## 2. Split into hunks
+
+```bash
+node <SKILL>/scripts/hunks.mjs split --diff <WORK>/pr.diff --out <WORK>
+```
+
+A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in diff order across all files, `H01`, `H02` and so on. Each hunk gets a kind from its path: `code`, `test`, `screenshot` or `generated`. Only `code` hunks must raise a question and be on a slide. The script writes `hunks.json` and `annotated.md`, the diff with one `## H07 ...` section per hunk, and prints one line per hunk. Read `annotated.md` to see the hunks.
+
+## 3. Investigate
 
 Ask and answer as described above. Write `<WORK>/chain.md` in this format:
 
@@ -82,9 +95,9 @@ node <SKILL>/scripts/hunks.mjs chain --work <WORK>
 
 Write the whole chain before you plan any slide: the plan may use only facts from the chain.
 
-## 3. Present
+## 4. Present
 
-Turn `chain.md` into `<WORK>/plan.md`: the slides, their order, the code on each slide and each tip. The builder (step 5) follows the plan exactly, so the plan holds every decision. Do not write JSON and do not build the deck yourself.
+Turn `chain.md` into `<WORK>/plan.md`: the slides, their order, the code on each slide and each tip. The builder (step 6) follows the plan exactly, so the plan holds every decision. Do not write JSON and do not build the deck yourself.
 
 Before you put code on a slide, open the files from "Looked at" again, choose the exact lines, and take each tip key from their text. Do not trust line numbers from the chain or from memory.
 
@@ -187,16 +200,16 @@ node <SKILL>/scripts/hunks.mjs plan --work <WORK>
 
 Then read only the titles and the slide texts in order. They must tell the chain without the code.
 
-## 4. Read (Sonnet agent)
+## 5. Read (Sonnet agent)
 
 The reader knows nothing but the slides: not this skill, not the PR, not the plan or the chain, not that there were earlier rounds.
 
 1. Run `node <SKILL>/scripts/hunks.mjs reader --work <WORK>`. It writes one numbered file per slide to `<WORK>/reader/slides/` and removes the `reading.md` of an earlier round.
 2. Start a new agent in the foreground with `model: "sonnet"`. Its prompt is the full text of `<SKILL>/references/reader.md`, with `<REPO>` replaced by `<WORK>/src/head`, `<SLIDES>` by `<WORK>/reader/slides` and `<NOTES>` by `<WORK>/reader/reading.md`. Add nothing else.
-3. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove it. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. Tips that start with "Open question:" stay. Keep the rules of step 3; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
+3. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove it. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. Tips that start with "Open question:" stay. Keep the rules of step 4; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
 4. Repeat with a new reader agent. Stop when `reading.md` has no items, or after two corrections.
 
-## 5. Build (Sonnet agent)
+## 6. Build (Sonnet agent)
 
 Start a new agent in the foreground with `model: "sonnet"` and this prompt:
 

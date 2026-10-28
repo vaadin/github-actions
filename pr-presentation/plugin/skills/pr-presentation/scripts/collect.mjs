@@ -2,7 +2,7 @@
 // Collect everything about a PR that the next steps need, into one folder, from the local checkout.
 //
 // Usage:
-//   collect.mjs --pr <url-or-number> [--repo owner/repo] [--root <checkout>] [--merge-base <sha>] --out <WORK>
+//   collect.mjs --pr <url-or-number> [--repo owner/repo] [--root <checkout>] --out <WORK>
 //   collect.mjs --clean --out <WORK>
 //
 // GitHub is asked only for what the checkout does not have: the PR metadata and the linked issues. The code
@@ -11,9 +11,6 @@
 //
 // --root is the local checkout of the repository. Default: the repository of the current directory, when one
 // of its remotes is the PR's repository. The worktrees share its objects.
-//
-// --merge-base <sha> is for a caller that fetched the merge base and the PR head itself, such as a CI job on a
-// shallow checkout, where `git merge-base` has no history to work with. The script then fetches nothing.
 //
 // Writes:
 //   pr.json             gh pr view (metadata, linked issues, commits) plus root, remote and mergeBaseOid
@@ -127,26 +124,16 @@ function collect(a) {
   const { number: n, headRefOid: head, baseRefName: baseBranch } = pr;
 
   const [root, remote] = findRoot(a.root, repo);
+  if (git(root, ['fetch', '--quiet', remote, baseBranch, `pull/${n}/head`]) === null) console.error('Fetch failed; using what the checkout already has');
   const baseRef = `${remote}/${baseBranch}`;
-  let mb;
-  if (a['merge-base']) {
-    mb = a['merge-base'];
-    for (const ref of [head, mb]) {
-      if (git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { quiet: true }) === null) {
-        die(`${ref} is not in ${root}. Fetch it before you pass --merge-base.`);
-      }
+  for (const ref of [head, baseRef]) {
+    if (git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { quiet: true }) === null) {
+      die(`${ref} is not in ${root}. Fetch it, or pass --root with a checkout that has it.`);
     }
-  } else {
-    if (git(root, ['fetch', '--quiet', remote, baseBranch, `pull/${n}/head`]) === null) console.error('Fetch failed; using what the checkout already has');
-    for (const ref of [head, baseRef]) {
-      if (git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { quiet: true }) === null) {
-        die(`${ref} is not in ${root}. Fetch it, or pass --root with a checkout that has it.`);
-      }
-    }
-    const mergeBase = git(root, ['merge-base', baseRef, head]);
-    if (mergeBase === null) process.exit(1);
-    mb = mergeBase.trim();
   }
+  const mergeBase = git(root, ['merge-base', baseRef, head]);
+  if (mergeBase === null) process.exit(1);
+  const mb = mergeBase.trim();
 
   git(root, ['worktree', 'prune']);
   const states = {};
@@ -197,13 +184,13 @@ function collect(a) {
   console.log(`  src/head: worktree at ${head.slice(0, 10)} (PR head), ${states.head}`);
 }
 
-const USAGE = 'usage: collect.mjs --pr <url-or-number> [--repo owner/repo] [--root <checkout>] [--merge-base <sha>] --out <WORK>\n       collect.mjs --clean --out <WORK>';
+const USAGE = 'usage: collect.mjs --pr <url-or-number> [--repo owner/repo] [--root <checkout>] --out <WORK>\n       collect.mjs --clean --out <WORK>';
 
 function main() {
   let a;
   try {
     ({ values: a } = parseArgs({ options: {
-      pr: { type: 'string' }, repo: { type: 'string' }, root: { type: 'string' }, 'merge-base': { type: 'string' }, out: { type: 'string' }, clean: { type: 'boolean' },
+      pr: { type: 'string' }, repo: { type: 'string' }, root: { type: 'string' }, out: { type: 'string' }, clean: { type: 'boolean' },
     } }));
   } catch (e) {
     console.error(`${e.message}\n${USAGE}`);
