@@ -2,13 +2,11 @@
 // Build the PR presentation from PR metadata and the slides file.
 //
 // Usage:
-//   build.mjs --pr pr.json --slides slides.json [--src src] [--context WORK] --out page.html
+//   build.mjs --pr pr.json --slides slides.json [--src src] --out page.html
 //
 // pr.json:     written by collect.mjs: the `gh pr view` fields plus mergeBaseOid
 // slides.json: written by hunks.mjs build from plan.md; see references/slides-json.md next to SKILL.md
 // src:         the worktrees from collect.mjs (src/base, src/head); member lines then link to their line on GitHub
-// WORK:        the work folder; its PR context, notes, diff, changed files and the files that chain.md and
-//              plan.md name go into the page for the "Ask Claude" chat
 //
 // The build only checks that the data is well-formed and that every tip key and introduced name
 // exists in the slide's code. The quality rules live in SKILL.md.
@@ -19,7 +17,7 @@ import { parseArgs } from 'node:util';
 
 const ASSETS = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets');
 const TEMPLATE = join(ASSETS, 'template.html');
-// reveal.js 5.1.0 stylesheets, inlined because the artifact sandbox only loads stylesheets from Google Fonts
+// reveal.js 5.1.0 stylesheets, inlined so the deck is one self-contained file
 const REVEAL_CSS = [join(ASSETS, 'reveal', 'reveal.min.css'), join(ASSETS, 'reveal', 'simple.min.css')];
 
 const CHUNK_KEYS = new Set(['code', 'caption', 'context', 'file']);
@@ -173,23 +171,10 @@ function startsMember(line) {
   return n.endsWith('{') && !/(=>|->|=|;)/.test(bare) && /^[.#:\[\w*&>~+-]/.test(n);
 }
 
-// The worktrees hold the whole repository, so the build reads only the files the deck draws on
-const PATH_RE = /src\/(?:base|head)\/([^\s,:;)`]+)/g;
-const SKIP_KINDS = new Set(['screenshot', 'generated']);
-
-// The files the deck draws on, in order: the files of its chunks, the changed files, then the files that
-// plan.md and chain.md name.
-function deckPaths(doc, work) {
+// The worktrees hold the whole repository, so the build reads only the files of the deck's chunks
+function deckPaths(doc) {
   const paths = [];
   for (const sl of doc.slides) for (const side of ['before', 'after']) for (const c of chunks(sl[side])) if (c.file) paths.push(c.file);
-  if (work) {
-    const hunks = join(work, 'hunks.json');
-    if (isFile(hunks)) paths.push(...JSON.parse(read(hunks)).filter((h) => !SKIP_KINDS.has(h.kind)).map((h) => h.path));
-    for (const name of ['plan.md', 'chain.md']) {
-      const f = join(work, name);
-      if (isFile(f)) paths.push(...[...read(f).matchAll(PATH_RE)].map((m) => m[1]));
-    }
-  }
   return [...new Set(paths)];
 }
 
@@ -255,52 +240,12 @@ function addLinks(doc, src, pr, paths) {
   }
 }
 
-// The chat sends this material with every question; the sample call takes at most 256 KiB in all
-const CHAT_BUDGET = 180_000;
-const CHAT_DOCS = [
-  ['chain.md', 'The logical chain behind the PR, rebuilt from the code: questions, answers with sources, open questions'],
-  ['context.md', 'PR description, linked issue, review discussion and history'],
-  ['plan.md', 'The slide plan: notes on how the code works, why each change was made and which cases it affects'],
-  ['pr.diff', 'The full diff'],
-];
-
-// PR material for the chat, most useful first, within CHAT_BUDGET characters: the docs, then the files
-// in `paths` from the worktrees.
-function chatContext(work, paths) {
-  const docs = [];
-  const left = [];
-  for (const [name, about] of CHAT_DOCS) {
-    const f = join(work, name);
-    if (isFile(f)) docs.push({ name, about, text: read(f) });
-  }
-  let used = docs.reduce((s, d) => s + d.text.length, 0);
-  const src = join(work, 'src');
-  const sides = paths.map((p) => [p, readText(join(src, 'base', p)), readText(join(src, 'head', p))]).filter(([, b, h]) => b !== null || h !== null);
-  // Changed files first (head, then base), then unchanged files the change depends on
-  const entries = new Map(sides.map(([p]) => [p, { path: p }]));
-  const order = [
-    ...sides.filter(([, b, h]) => h !== null && b !== h).map(([p, , h]) => [p, 'head', h]),
-    ...sides.filter(([, b, h]) => b !== null && b !== h).map(([p, b]) => [p, 'base', b]),
-    ...sides.filter(([, b, h]) => h !== null && b === h).map(([p, , h]) => [p, 'unchanged', h]),
-  ];
-  for (const [path, side, text] of order) {
-    if (used + text.length > CHAT_BUDGET) {
-      left.push(`${path} (${side})`);
-      continue;
-    }
-    entries.get(path)[side] = text;
-    used += text.length;
-  }
-  const files = [...entries.values()].filter((e) => Object.keys(e).length > 1);
-  return { docs, files, omitted: left };
-}
-
-const USAGE = 'usage: build.mjs --pr pr.json --slides slides.json [--src src] [--context WORK] --out page.html';
+const USAGE = 'usage: build.mjs --pr pr.json --slides slides.json [--src src] --out page.html';
 
 function main() {
   let a;
   try {
-    ({ values: a } = parseArgs({ options: { pr: { type: 'string' }, slides: { type: 'string' }, src: { type: 'string' }, context: { type: 'string' }, out: { type: 'string' } } }));
+    ({ values: a } = parseArgs({ options: { pr: { type: 'string' }, slides: { type: 'string' }, src: { type: 'string' }, out: { type: 'string' } } }));
   } catch (e) {
     console.error(`${e.message}\n${USAGE}`);
     process.exit(2);
@@ -316,8 +261,7 @@ function main() {
     console.error('slides.json is invalid:\n  ' + errors.join('\n  '));
     process.exit(1);
   }
-  const work = a.context || null;
-  const paths = deckPaths(doc, work);
+  const paths = deckPaths(doc);
   if (a.src) addLinks(doc, a.src, pr, paths);
 
   const data = {
@@ -326,7 +270,6 @@ function main() {
     open: doc.open || [],
     slides: doc.slides,
   };
-  if (work) data.chat = chatContext(work, paths);
   const payload = JSON.stringify(data).replace(/<\//g, '<\\/');
   let html = read(TEMPLATE);
   // Function replacers, so that "$" in the CSS or the code is not read as a replacement pattern
