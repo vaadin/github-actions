@@ -78,20 +78,19 @@ try {
   await send('Page.navigate', { url: pathToFileURL(resolve(deck)).href });
   await evaluate(`new Promise((res) => {
     const ready = () => document.fonts.ready.then(() => setTimeout(res, 300));
-    const wait = () => (window.Reveal && Reveal.isReady()) ? ready() : setTimeout(wait, 50);
+    const wait = () => (window.shower && shower.slides) ? ready() : setTimeout(wait, 50);
     wait();
   })`);
-  await evaluate(`Reveal.configure({ transition: 'none', backgroundTransition: 'none' })`);
+  await evaluate(`document.head.appendChild(document.createElement('style')).textContent = '.slide { transition: none !important; }'`);
 
-  // [h, v] for every slide, vertical stacks included
-  const indices = await evaluate(`Reveal.getSlides().map((s) => { const i = Reveal.getIndices(s); return [i.h, i.v || 0]; })`);
+  const count = await evaluate(`shower.slides.length`);
   mkdirSync(outDir, { recursive: true });
   const problems = [];
-  for (const [h, v] of indices) {
+  for (let i = 0; i < count; i++) {
     const info = await evaluate(`new Promise((res) => {
-      Reveal.slide(${h}, ${v});
+      shower.goTo(${i});
       setTimeout(() => {
-        const s = Reveal.getCurrentSlide();
+        const s = shower.activeSlide.element;
         const body = s.querySelector('.concept');
         res({
           title: (s.querySelector('h1, h2, h3')?.textContent || '').trim(),
@@ -99,7 +98,7 @@ try {
         });
       }, 150);
     })`);
-    const name = `slide-${String(h).padStart(2, '0')}-${String(v).padStart(2, '0')}.png`;
+    const name = `slide-${String(i).padStart(2, '0')}.png`;
     const shot = await send('Page.captureScreenshot', { format: 'png' });
     writeFileSync(join(outDir, name), Buffer.from(shot.data, 'base64'));
     console.log(`${name}  ${info.title}${info.overflow ? '  [OVERFLOWS]' : ''}`);
