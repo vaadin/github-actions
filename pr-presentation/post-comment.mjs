@@ -1,28 +1,14 @@
 #!/usr/bin/env node
 /**
- * Post or update the PR comment that links to the deck.
- *
- * Runs in the pr-presentation action as a plain step, after the deck is
- * uploaded as an artifact, with the comment token: the only step of the
+ * Post or update the PR comment that links to the deck: the only step of the
  * action that writes to GitHub. One comment per PR: a hidden marker in the
  * body finds the comment of an earlier run, which is then updated in place.
  *
- * The comment is minimal: one line with the link, and a <sub> line with the
- * generation time that links to the workflow run.
+ * Environment: PR_NUMBER (or argv[2]), GITHUB_REPOSITORY, GH_TOKEN (the
+ * comment token), ARTIFACT_URL, GITHUB_SERVER_URL, GITHUB_RUN_ID. With
+ * DRY_RUN set, prints the body instead of posting it.
  *
- * Reads from the environment (set by GitHub Actions):
- *   PR_NUMBER / argv[2]  pull request number
- *   GITHUB_REPOSITORY    owner/repo
- *   GH_TOKEN             token with pull-requests write; its identity is the
- *                        comment author
- *   ARTIFACT_URL         the artifact-url output of the upload step
- *   GITHUB_SERVER_URL, GITHUB_RUN_ID
- *                        the workflow run, linked from the time stamp
- *   DRY_RUN              if set, print the body and exit without calling the
- *                        GitHub API
- *
- * Usage:
- *   node pr-presentation/post-comment.mjs <pr-number>
+ * Usage: node pr-presentation/post-comment.mjs <pr-number>
  */
 
 import { execFileSync } from 'node:child_process';

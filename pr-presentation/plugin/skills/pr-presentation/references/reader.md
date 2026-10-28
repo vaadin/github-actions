@@ -40,7 +40,7 @@ A reader sees the slides one at a time and cannot look ahead. A slide that a lat
    3. **Step**: a step that the reader must know to follow the change, but no slide so far shows.
    4. **Fix**: a change whose slide does not tell how it corrects the problem.
    5. **Reference**: a slide text that refers to another slide, such as "continuing slide 4".
-3. Append the section for this slide to `<NOTES>` before you open the next file. Do not change a written section after you open a later file: what the reader missed on a slide stays missed, even if a later slide explains it.
+3. Append the section for this slide to `<NOTES>` (for example with `cat >>`) before you open the next file. Do not change a written section after you open a later file: what the reader missed on a slide stays missed, even if a later slide explains it.
 
 After the last slide, read `<NOTES>` once more and add the **Not needed** items: a term, claim or step that the reader did not need to follow what was wrong and how the change corrects it. Only this pass may use the whole deck and add to earlier sections.
 

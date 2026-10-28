@@ -1,11 +1,7 @@
 name: 'Claude PR Presentation'
 description: >-
-  Explains a pull request as a slide deck built from its code with Claude
-  Code, and links the deck from one comment on the PR: a prepare step collects
-  the PR (diff, metadata, linked issues, two worktrees) with a read-only
-  token, one headless Claude Code session follows the pr-presentation skill
-  and writes the deck, the deck is uploaded as a plain HTML artifact, and a
-  posting step creates or updates the comment with a second token.
+  Explains a pull request as a slide deck built from its code by one headless
+  Claude Code session, and links the deck from one comment on the PR.
 
 inputs:
   anthropic-api-key:
@@ -21,10 +17,9 @@ inputs:
     required: true
   github-token:
     description: >-
-      Read-only token used to collect the PR inputs (pull request metadata,
-      linked issues, the merge base). The Claude session never sees a token.
-      Keep the job's permissions at contents read and pull-requests read so
-      the default token is read-only.
+      Read-only token that the Claude session uses to collect the PR (pull
+      request metadata, linked issues). Keep the job's permissions at
+      contents read and pull-requests read so the default token is read-only.
     required: false
     default: ${{ github.token }}
   comment-token:
@@ -33,24 +28,18 @@ inputs:
       comment author. Needs pull-requests write. Pass a bot token or a
       GitHub App installation token.
     required: true
-  upload-execution-log:
-    description: >-
-      Set to 'true' to upload the full stream-json execution log as a workflow
-      artifact. Off by default because the log contains every tool_use with its
-      input and every tool_result, and on a public repository the artifact is
-      world-readable. Typically wired to a repository variable, e.g.
-      vars.CLAUDE_DEBUG.
-    required: false
-    default: 'false'
 
 runs:
   using: composite
   steps:
-    - name: Prepare presentation inputs
+    # The skill computes the merge base in the checkout.
+    - name: Check checkout
       shell: bash
-      env:
-        GH_TOKEN: ${{ inputs.github-token }}
-      run: node "$GITHUB_ACTION_PATH/prepare-presentation.mjs" "${{ inputs.pr-number }}"
+      run: |
+        if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+          echo "::error::Check out the repository with fetch-depth: 0"
+          exit 1
+        fi
 
     - name: Install Claude Code
       shell: bash
@@ -61,6 +50,7 @@ runs:
       shell: bash
       env:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        GH_TOKEN: ${{ inputs.github-token }}
       run: node "$GITHUB_ACTION_PATH/run-presentation.mjs" "${{ inputs.pr-number }}"
 
     # archive: false stores the file as it is, so the artifact URL opens the
@@ -85,11 +75,3 @@ runs:
       if: always() && steps.run.outputs.execution-file != ''
       shell: bash
       run: node "$GITHUB_ACTION_PATH/../lib/claude-summary.mjs" "${{ steps.run.outputs.execution-file }}"
-
-    - name: Upload Claude execution log
-      if: always() && inputs.upload-execution-log == 'true' && steps.run.outputs.execution-file != ''
-      uses: actions/upload-artifact@v7
-      with:
-        name: pr-presentation-execution-${{ github.run_id }}-${{ github.run_attempt }}
-        path: ${{ steps.run.outputs.execution-file }}
-        retention-days: 7
