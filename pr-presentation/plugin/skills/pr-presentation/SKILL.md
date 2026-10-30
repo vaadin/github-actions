@@ -1,6 +1,6 @@
 ---
 name: pr-presentation
-description: Turn a GitHub pull request into an HTML slide deck that explains the change from its code, not from the PR description: each hunk raises questions, the code answers them, and the slides tell that chain step by step (background code, bugs as steps, fixes as old and new code, tooltips). Suspected bugs and questions the code cannot answer stay as review notes on a closing slide. Use when the user wants a high-level or "zoomed out" view of a PR, a guided tour or presentation of it, or an easier way to read a diff, even if they only share a PR link.
+description: Turn a GitHub pull request into an HTML slide deck that helps a developer who does not know the changed code understand what the PR does and why, before they read the diff. The deck is built from the code, not from the PR description: the slides show how the code worked, what was wrong or missing, and how each change corrects it. Suspected bugs and questions the code cannot answer stay as review notes on a closing slide. Use when the user wants a high-level or "zoomed out" view of a PR, a guided tour or presentation of it, or an easier way to read a diff, even if they only share a PR link.
 argument-hint: <pr-url> <work-dir>
 allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(gh *), Bash(git *), Bash(mkdir *), Bash(node *)
 ---
