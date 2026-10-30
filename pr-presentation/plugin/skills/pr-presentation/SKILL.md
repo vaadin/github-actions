@@ -2,7 +2,7 @@
 name: pr-presentation
 description: Turn a GitHub pull request into an HTML slide deck that helps a developer who does not know the changed code understand what the PR does and why, before they read the diff. The deck is built from the code, not from the PR description: the slides show how the code worked, what was wrong or missing, and how each change corrects it. Suspected bugs and questions the code cannot answer stay as review notes on a closing slide. Use when the user wants a high-level or "zoomed out" view of a PR, a guided tour or presentation of it, or an easier way to read a diff, even if they only share a PR link.
 argument-hint: <pr-url> <work-dir>
-allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(gh *), Bash(git *), Bash(mkdir *), Bash(node *)
+allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(node *), Bash(git *)
 ---
 
 ## Run
@@ -228,11 +228,10 @@ The reader knows nothing but the slides: not this skill, not the PR, not the pla
 ### 6. Build
 
 ```bash
-S=<SKILL>/scripts
-node $S/hunks.mjs build --work <WORK>
-node $S/build.mjs --pr <WORK>/pr.json --slides <WORK>/slides.json --src <WORK>/src --out <WORK>/deck.html
-node $S/hunks.mjs slides --work <WORK>
-node $S/check.mjs <WORK>/deck.html <WORK>/shots
+node <SKILL>/scripts/hunks.mjs build --work <WORK>
+node <SKILL>/scripts/build.mjs --pr <WORK>/pr.json --slides <WORK>/slides.json --src <WORK>/src --out <WORK>/deck.html
+node <SKILL>/scripts/hunks.mjs slides --work <WORK>
+node <SKILL>/scripts/check.mjs <WORK>/deck.html <WORK>/shots
 ```
 
 `hunks.mjs build` writes `slides.json` from `plan.md` and `chain.md`. `hunks.mjs slides` shows which changed lines are on no slide. `check.mjs` saves one PNG per slide to `<WORK>/shots` and shows the slides that overflow.
