@@ -17,7 +17,7 @@ The steps pass their results in files under `<WORK>`. `<SKILL>` is the base dire
 
 ## Investigation
 
-**Code first.** The code is the best specification of the change. Do not trust what the author says about the PR: the description, the commit messages and the review comments tell what the author thinks the change does, so do not read them. Answer every question from the code in the checkouts under `<WORK>/src`: the diff, the code around it, callers, definitions, types, names. Tests only confirm an answer. Only a question that the code cannot answer sends you further: to the linked and related issues in `context.md`, and to the git history of the touched lines. Run git in the current directory, against the merge base `mergeBaseOid` from `pr.json`, for example `git log -L 40,60:<path> <mergeBaseOid>` or `git blame -L 40,60 <mergeBaseOid> -- <path>`. An answer from there is weaker than one from the code: say in "Looked at" where it comes from, and confirm in the code what you can. What this session already knows about the PR, from the user or from earlier work, does not count.
+**Code first.** The code is the best specification of the change. Do not trust what the author says about the PR: the description, the commit messages and the review comments tell what the author thinks the change does, so do not read them. Answer every question from the code in the checkouts under `<WORK>/src`: the diff, the code around it, callers, definitions, types, names. Tests only confirm an answer. Only a question that the code cannot answer sends you further: to the linked and related issues in `context.md`, and to the git history of the touched lines. An answer from there is weaker than one from the code: say in "Looked at" where it comes from, and confirm in the code what you can. What this session already knows about the PR, from the user or from earlier work, does not count.
 
 **Concepts.**
 
@@ -57,7 +57,9 @@ A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in 
 
 ### 3. Investigate
 
-Ask and answer as described above. Write `<WORK>/chain.md` in this format:
+Ask and answer as described above. For the history of lines, run git in the current directory against the merge base `mergeBaseOid` from `pr.json`, for example `git log -L 40,60:<path> <mergeBaseOid>` or `git blame -L 40,60 <mergeBaseOid> -- <path>`.
+
+Write `<WORK>/chain.md` in this format:
 
 ````markdown
 ## Questions
