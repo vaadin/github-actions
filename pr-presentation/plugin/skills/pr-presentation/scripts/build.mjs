@@ -19,7 +19,7 @@ const ASSETS = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets');
 const TEMPLATE = join(ASSETS, 'template.html');
 
 const CHUNK_KEYS = new Set(['code', 'caption', 'context', 'file']);
-const OPEN_KINDS = ['Suspected bug', 'Unexplained', 'Unused'];
+const OPEN_KINDS = ['Suspected bug', 'Unexplained'];
 const GAP_RE = /(?<![\w$.])\.\.\.(?![\w$.])/;
 
 const splitlines = (text) => { const a = text.split(/\r?\n/); if (a.length && a.at(-1) === '') a.pop(); return a; };

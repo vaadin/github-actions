@@ -24,8 +24,7 @@
       "steps": [
         {"text": "One sentence.", "where": "__appendValueItemElement", "code": "itemElement.removeAttribute('aria-selected');"},
         {"text": "One sentence.", "where": "__attachSelectedItem", "code": "labelItem.selected = true;"}
-      ],
-      "tips": {"labelItem.selected = true;": "Bug: ..."}
+      ]
     },
     {
       "title": "Remove selected from the copy",
@@ -42,7 +41,7 @@
 ## Title and closing slide
 
 - `summary` is the title slide.
-- `open` is the closing slide "Review notes": the open questions of `chain.md` by kind. `kind` is `Suspected bug`, `Unexplained` or `Unused`. `slide` is the number of the first slide, from 1, whose tip starts with the kind and one of the `questions`; the page links to it. An item without `slide` is listed without a link.
+- `open` is the closing slide "Review notes": the open questions of `chain.md` by kind. `kind` is `Suspected bug` or `Unexplained`. `slide` is the number of the first slide, from 1, whose tip starts with the kind and one of the `questions`; the page links to it. An item without `slide` is listed without a link.
 - `omitted` is shown by `hunks.mjs slides`, not on the page.
 
 ## Slides

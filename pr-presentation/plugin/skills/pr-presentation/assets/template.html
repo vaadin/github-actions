@@ -446,7 +446,7 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
   }
 
   var tipTexts = [];
-  var NOTE = /^((?:Suspected bug|Unexplained|Unused)(?:\s*\([^)]*\))?):\s*([\s\S]*)$/;
+  var NOTE = /^((?:Suspected bug|Unexplained)(?:\s*\([^)]*\))?):\s*([\s\S]*)$/;
   // A side without code is left out, and the other side takes the full width. Unchanged context goes
   // into a neutral pane of its own below the changed code, so it is never boxed inside a colored pane;
   // so does code repeated from an earlier slide (recap), which supports the change rather than being it.
@@ -596,15 +596,14 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
   // Closing slide: the open questions by kind. Each one links to the first slide that holds its tip.
   var KINDS = [
     ['Suspected bug', 'the code does something wrong in a case found by reading it, not by running it'],
-    ['Unexplained', 'a change, value or check without a reason in the code, the issues or the history'],
-    ['Unused', 'a check or change that no case reaches today, or that the explanation does not need']
+    ['Unexplained', 'a change, value or check without a reason in the code, the issues or the history']
   ];
   var open = data.open || [];
   if (open.length) {
     var nsec = el('section', 'slide'), nbody = el('div', 'concept'), nhead = el('div', 'head');
     nhead.appendChild(el('h2', null, 'Review notes'));
     nbody.appendChild(nhead);
-    nbody.appendChild(el('p', 'lead', 'Questions that the code does not answer. Each one can show a problem in the PR; the author can settle it.'));
+    nbody.appendChild(el('p', 'lead', 'Places where the code looks wrong or nothing tells why. Each one can show a problem in the PR; the author can settle it.'));
     var notes = el('div', 'notes');
     KINDS.forEach(function (kind) {
       var items = open.filter(function (o) { return o.kind === kind[0]; });

@@ -6,7 +6,7 @@
 //       Writes <WORK>/hunks.json and <WORK>/annotated.md: one "## H07" section per hunk with its diff.
 //   hunks.mjs chain    --work <WORK>
 //       Checks <WORK>/chain.md: every code hunk raises a question, every question has an answer from the code or
-//       is open, every open question has a kind, and every link of the chain refers to the questions that prove it.
+//       an '- Unexplained:' line, and every link of the chain refers to the questions that prove it.
 //   hunks.mjs plan     --work <WORK>
 //       Checks <WORK>/plan.md: every code hunk ID under "Hunks:" or "Omitted:" with a reason (tests
 //       are not shown), tips of at most 20 words whose keys are in the code of their side, open-question tips that
@@ -14,7 +14,8 @@
 //       Introduces in the slide's code, line ranges that start at real code, and each slide estimated to fit one screen.
 //   hunks.mjs reader   --work <WORK>
 //       Writes <WORK>/reader/slides/: the deck as the reader sees it (title slide, titles, sentences, code, tips), from plan.md, without the notes, one numbered file per slide. The reader check of the skill
-//       sees only this folder, one file at a time. Removes a <WORK>/reader/reading.md left by an earlier reader.
+//       sees only this folder, one file at a time. Moves a <WORK>/reader/reading.md left by an earlier reader to
+//       reading-1.md, reading-2.md and so on, so each round's notes stay.
 //       Also writes <WORK>/reader.md, the whole deck, for the orchestrator.
 //   hunks.mjs build    --work <WORK>
 //       Writes <WORK>/slides.json from plan.md and chain.md, the input of build.mjs: the code of each line range as
@@ -27,7 +28,7 @@
 //
 // Lines without a name in them (braces, blank lines), imports and comments are not checked: the slides
 // leave them out on purpose. Test files, screenshots and generated files are listed but not required.
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -38,11 +39,11 @@ const COMMENT_RE = /^(\/\/|\/\*|\*|<!--|#\s)/;
 const GAP_RE = /(?<![\w$.])(?:\.\.\.|…)(?![\w$.])/;
 
 // The kinds of an open question, as chain.md lists them and as a tip starts
-const OPEN_KINDS = ['Suspected bug', 'Unexplained', 'Unused'];
+const OPEN_KINDS = ['Suspected bug', 'Unexplained'];
 const KINDS_RE = OPEN_KINDS.join('|');
-// "- Unused (Q6, Q15): text" under "## Open questions" of chain.md
-const OPEN_ITEM_RE = new RegExp(`^- (${KINDS_RE}) \\((Q\\d+(?:,\\s*Q\\d+)*)\\):\\s*(.+)$`);
-// The tip of an open question starts with its kind and questions: "Unused (Q6): text"
+// "- Unexplained: text" in the entry of a question of chain.md
+const OPEN_ITEM_RE = new RegExp(`^- (${KINDS_RE}):[ \\t]*(\\S.*)$`, 'gm');
+// The tip of an open question starts with its kind and questions: "Unexplained (Q6): text"
 const OPEN_TIP_RE = new RegExp(`^(${KINDS_RE}) \\((Q\\d+(?:,\\s*Q\\d+)*)\\):`);
 // "- `key` (after): text" under "Tips:" of a slide; the key may be wrapped in double backticks
 const TIP_RE = /^- (``?)(.+?)\1 \((before|after|both)\): (.+)$/gm;
@@ -370,23 +371,17 @@ function chainSections(text) {
   return sections;
 }
 
-// The open questions of chain.md: items {kind, questions: ["Q11"], text}, and the lines that are not in the format.
-// An indented line continues the item before it.
+// The questions of chain.md: [id, source, body] for each "### Q1 (from H01): ..." under "## Questions"
+function chainQuestions(text) {
+  return [...(chainSections(text)['Questions'] || '').matchAll(/^### (Q\d+) \(from ([^)]*)\):.*?\n([\s\S]*?)(?=^### |^## |(?![\s\S]))/gm)]
+    .map((m) => [m[1], m[2], m[3]]);
+}
+
+// The open questions of chain.md, from the '- Suspected bug:' and '- Unexplained:' lines of its questions:
+// items {kind, questions: ["Q11"], text}
 function openQuestions(text) {
-  const items = [];
-  const bad = [];
-  for (const line of (chainSections(text)['Open questions'] || '').split('\n')) {
-    const s = line.trim();
-    if (!s || /^none$/i.test(s)) continue;
-    if (/^\s/.test(line) && items.length && !s.startsWith('- ')) {
-      items.at(-1).text += ' ' + s;
-      continue;
-    }
-    const m = OPEN_ITEM_RE.exec(s);
-    if (m) items.push({ kind: m[1], questions: m[2].split(/,\s*/), text: m[3].trim() });
-    else bad.push(s);
-  }
-  return { items, bad };
+  return chainQuestions(text).flatMap(([q, , body]) =>
+    [...body.matchAll(OPEN_ITEM_RE)].map((m) => ({ kind: m[1], questions: [q], text: m[2].trim() })));
 }
 
 // What the planner must keep: every hunk placed, tip length and keys, new things per slide.
@@ -395,7 +390,7 @@ function cmdPlan(args) {
   const hunks = JSON.parse(read(join(work, 'hunks.json')));
   const text = read(join(work, 'plan.md'));
   const chainFile = join(work, 'chain.md');
-  const open = isFile(chainFile) ? openQuestions(read(chainFile)).items : null;
+  const open = isFile(chainFile) ? openQuestions(read(chainFile)) : null;
   let problems = 0;
   const head = planHead(text);
   const placed = new Set();
@@ -463,7 +458,7 @@ function cmdPlan(args) {
         for (const q of o[2].split(/,\s*/)) {
           const item = open.find((it) => it.questions.includes(q));
           if (!item) {
-            console.log(`OPEN TIP ${q} is not in 'Open questions' of chain.md: ${title}`);
+            console.log(`OPEN TIP ${q} has no '- ${o[1]}:' line in chain.md: ${title}`);
             problems += 1;
           } else if (item.kind !== o[1]) {
             console.log(`OPEN TIP ${q} is '${o[1]}' here but '${item.kind}' in chain.md: ${title}`);
@@ -487,7 +482,11 @@ function cmdReader(args) {
   const folder = join(work, 'reader', 'slides');
   mkdirSync(folder, { recursive: true });
   for (const old of readdirSync(folder)) if (old.endsWith('.md')) rmSync(join(folder, old));
-  rmSync(join(work, 'reader', 'reading.md'), { force: true });
+  const notes = join(work, 'reader', 'reading.md');
+  if (existsSync(notes)) {
+    const rounds = readdirSync(join(work, 'reader')).filter((f) => /^reading-\d+\.md$/.test(f)).length;
+    renameSync(notes, join(work, 'reader', `reading-${rounds + 1}.md`));
+  }
   const files = [['00-title.md', ['# Title slide', '', summary, '']]];
   planSlides(text).forEach((slide, idx) => {
     const n = idx + 1;
@@ -538,7 +537,7 @@ function cmdBuild(args) {
   const text = read(join(work, 'plan.md'));
   const head = planHead(text);
   const chainFile = join(work, 'chain.md');
-  const open = isFile(chainFile) ? openQuestions(read(chainFile)).items : [];
+  const open = isFile(chainFile) ? openQuestions(read(chainFile)) : [];
   const problems = [];
   const doc = { summary: plain(planLine(head, 'Summary')), omitted: parseOmitted(planLine(head, 'Omitted')),
     open: open.map((o) => ({ ...o, text: plain(o.text) })), slides: [] };
@@ -592,21 +591,19 @@ function cmdBuild(args) {
   console.log(`Wrote ${out}: ${doc.slides.length} slides, ${doc.open.length} open question(s), ${Object.keys(doc.omitted).length} omitted hunk(s)`);
 }
 
-// What the investigation must keep: every code hunk raises a question, every question has an answer or is
-// open with a kind, and every link of the chain refers to the questions that prove it.
+// What the investigation must keep: every code hunk raises a question, every question has an answer or an
+// '- Unexplained:' line, and every link of the chain refers to the questions that prove it.
 function cmdChain(args) {
   const work = args.work;
   const hunks = JSON.parse(read(join(work, 'hunks.json')));
   const text = read(join(work, 'chain.md'));
   const sections = chainSections(text);
   let problems = 0;
-  const questions = [...(sections['Questions'] || '').matchAll(/^### (Q\d+) \(from ([^)]*)\):.*?\n([\s\S]*?)(?=^### |^## |(?![\s\S]))/gm)]
-    .map((m) => [m[1], m[2], m[3]]);
+  const questions = chainQuestions(text);
   if (!questions.length) {
     console.log("NO QUESTIONS: write them under '## Questions' as '### Q1 (from H01): ...'");
     problems += 1;
   }
-  const openText = sections['Open questions'] || '';
   const started = new Set(questions.flatMap(([, src]) => src.match(/\bH\d{2,}\b/g) || []));
   for (const h of hunks) {
     if (h.kind === 'code' && !started.has(h.id)) {
@@ -614,27 +611,16 @@ function cmdChain(args) {
       problems += 1;
     }
   }
+  const items = openQuestions(text);
   for (const [q, , body] of questions) {
     const answer = /^- Answer:\s*(\S.*)$/m.exec(body);
     const looked = /^- Looked at:\s*(\S.*)$/m.exec(body);
-    if (!answer && !new RegExp(`\\b${q}\\b`).test(openText)) {
-      console.log(`NO ANSWER ${q}: answer it from the code, or put it in 'Open questions'`);
+    if (!answer && !items.some((it) => it.kind === 'Unexplained' && it.questions.includes(q))) {
+      console.log(`NO ANSWER ${q}: answer it from the code, or add '- Unexplained: <what nothing answers>'`);
       problems += 1;
     }
     if (answer && !looked) {
       console.log(`NO SOURCE ${q}: write where in the code the answer comes from ('- Looked at:')`);
-      problems += 1;
-    }
-  }
-  const ids = new Set(questions.map(([q]) => q));
-  const { items, bad } = openQuestions(text);
-  for (const s of bad) {
-    console.log(`OPEN QUESTION WITHOUT KIND: ${s.slice(0, 80)} (write '- Suspected bug (Q11): ...', '- Unexplained (...): ...' or '- Unused (...): ...')`);
-    problems += 1;
-  }
-  for (const it of items) for (const q of it.questions) {
-    if (!ids.has(q)) {
-      console.log(`OPEN ${q} is not a question under '## Questions'`);
       problems += 1;
     }
   }
@@ -649,10 +635,6 @@ function cmdChain(args) {
       problems += 1;
     }
   });
-  if (!('Open questions' in sections)) {
-    console.log("NO 'Open questions' section: write 'none' if there are none");
-    problems += 1;
-  }
   console.log(`${problems} problem(s): ${questions.length} questions, ${links.length} links in the chain, ${items.length} open question(s)`);
   process.exit(problems ? 1 : 0);
 }
