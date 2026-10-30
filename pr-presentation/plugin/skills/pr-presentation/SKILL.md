@@ -2,22 +2,20 @@
 name: pr-presentation
 description: Turn a GitHub pull request into an HTML slide deck that helps a developer who does not know the changed code understand what the PR does and why, before they read the diff. The deck is built from the code, not from the PR description: the slides show how the code worked, what was wrong or missing, and how each change corrects it. Suspected bugs and questions the code cannot answer stay as review notes on a closing slide. Use when the user wants a high-level or "zoomed out" view of a PR, a guided tour or presentation of it, or an easier way to read a diff, even if they only share a PR link.
 argument-hint: <pr-url> <work-dir>
-allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(node *), Bash(git log *), Bash(git blame *), Bash(git show *)
+allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(node *), Bash(git *)
 ---
 
 ## Run
 
 The work has two parts. The investigation (steps 1 to 3) reads the PR and writes `chain.md`: what the change does and why, proven from the code. The deck (steps 4 to 6) turns `chain.md` into slides: a plan, a reader agent that sees nothing but the slides and checks them, and scripts that build the deck from the plan.
 
-The steps pass their results in files under `<WORK>`. `<SKILL>` is the base directory of this skill, printed as "Base directory for this skill" when it is invoked. `$0` is the PR URL. `$1` is `<WORK>`, the folder for all files of the run. If an argument is missing, stop and report it.
+The steps pass their results in files under `<WORK>`. `<SKILL>` is the base directory of this skill, printed as "Base directory for this skill" when it is invoked. `$0` is the PR URL. `$1` is `<WORK>`, the folder for all files of the run; create it if it does not exist. If an argument is missing, stop and report it.
 
 **Output.** The only result is the file `<WORK>/deck.html`. Nobody reads your replies and nobody answers questions during the run. When step 6 is done, stop with an empty reply: do not summarize the deck. If a step cannot continue, stop and report why in one sentence.
 
-**Tools.** Read files with Read, and use its offset and limit for a line range. Search with Grep and Glob. Create `chain.md` and `plan.md` with Write, and change them with Edit. Use Bash only for the `node` commands of this skill and for `git log`, `git blame` and `git show`, one plain command per call: no `cd`, pipes, `&&`, `;`, redirects, heredocs, `$(...)` or variables. Other commands are denied.
-
 ## Investigation
 
-**Code first.** The code is the best specification of the change. Do not trust what the author says about the PR: the description, the commit messages and the review comments tell what the author thinks the change does, so do not read them. Answer every question from the code in the checkouts under `<WORK>/src`: the diff, the code around it, callers, definitions, types, names. Tests only confirm an answer. Only a question that the code cannot answer sends you further: to the linked and related issues in `context.md`, and to the git history of the touched lines up to the merge base. An answer from there is weaker than one from the code: say in "Looked at" where it comes from, and confirm in the code what you can. What this session already knows about the PR, from the user or from earlier work, does not count.
+**Code first.** The code is the best specification of the change. Do not trust what the author says about the PR: the description, the commit messages and the review comments tell what the author thinks the change does, so do not read them. Answer every question from the code in the checkouts under `<WORK>/src`: the diff, the code around it, callers, definitions, types, names. Tests only confirm an answer. Only a question that the code cannot answer sends you further: to the linked and related issues in `context.md`, and to the git history of the touched lines in `src/base`. An answer from there is weaker than one from the code: say in "Looked at" where it comes from, and confirm in the code what you can. What this session already knows about the PR, from the user or from earlier work, does not count.
 
 **Concepts.**
 
@@ -228,8 +226,6 @@ The reader knows nothing but the slides: not this skill, not the PR, not the pla
 4. Repeat with a new reader agent: do not continue the old one with `SendMessage`. Stop when `reading.md` has no items, or after two corrections.
 
 ### 6. Build
-
-Run each line as its own Bash call:
 
 ```bash
 node <SKILL>/scripts/hunks.mjs build --work <WORK>
