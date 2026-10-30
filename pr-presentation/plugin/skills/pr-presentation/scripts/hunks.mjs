@@ -14,7 +14,8 @@
 //       Introduces in the slide's code, line ranges that start at real code, and each slide estimated to fit one screen.
 //   hunks.mjs reader   --work <WORK>
 //       Writes <WORK>/reader/slides/: the deck as the reader sees it (title slide, titles, sentences, code, tips), from plan.md, without the notes, one numbered file per slide. The reader check of the skill
-//       sees only this folder, one file at a time. Removes a <WORK>/reader/reading.md left by an earlier reader.
+//       sees only this folder, one file at a time. Moves a <WORK>/reader/reading.md left by an earlier reader to
+//       reading-1.md, reading-2.md and so on, so each round's notes stay.
 //       Also writes <WORK>/reader.md, the whole deck, for the orchestrator.
 //   hunks.mjs build    --work <WORK>
 //       Writes <WORK>/slides.json from plan.md and chain.md, the input of build.mjs: the code of each line range as
@@ -27,7 +28,7 @@
 //
 // Lines without a name in them (braces, blank lines), imports and comments are not checked: the slides
 // leave them out on purpose. Test files, screenshots and generated files are listed but not required.
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -481,7 +482,11 @@ function cmdReader(args) {
   const folder = join(work, 'reader', 'slides');
   mkdirSync(folder, { recursive: true });
   for (const old of readdirSync(folder)) if (old.endsWith('.md')) rmSync(join(folder, old));
-  rmSync(join(work, 'reader', 'reading.md'), { force: true });
+  const notes = join(work, 'reader', 'reading.md');
+  if (existsSync(notes)) {
+    const rounds = readdirSync(join(work, 'reader')).filter((f) => /^reading-\d+\.md$/.test(f)).length;
+    renameSync(notes, join(work, 'reader', `reading-${rounds + 1}.md`));
+  }
   const files = [['00-title.md', ['# Title slide', '', summary, '']]];
   planSlides(text).forEach((slide, idx) => {
     const n = idx + 1;
