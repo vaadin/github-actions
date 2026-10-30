@@ -11,9 +11,9 @@
  * skill's references and write the run's files.
  *
  * The session gets the tools the skill names and no web or timer tools. Bash
- * is an allowlist of the skill's commands and read-only shell utilities. The
- * caller's read-only job token, passed as GH_TOKEN, bounds what gh and git
- * can do.
+ * allows only node, which runs the skill's scripts; the scripts run git and gh
+ * themselves. The caller's read-only job token, passed as GH_TOKEN, bounds what
+ * gh and git can do.
  *
  * A session that exits non-zero, times out or leaves no deck fails the run.
  *
@@ -42,12 +42,9 @@ const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const TOOLS = 'Read,Write,Edit,Glob,Grep,Bash,Agent';
 const ALLOWED_TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Agent'];
 
-// Bash commands auto-approved: the skill's own and read-only shell utilities.
-// An auto-approve list, not a capability boundary.
-const ALLOWED_BASH_COMMANDS = [
-  'node', 'gh', 'git', 'mkdir', 'cd', 'ls', 'cat', 'find', 'grep', 'rg', 'head', 'tail',
-  'wc', 'sed', 'awk', 'sort', 'uniq', 'cut', 'tr', 'basename', 'echo',
-];
+// Bash commands auto-approved: node runs the skill's scripts. Read, Grep and Glob
+// cover reading and searching. An auto-approve list, not a capability boundary.
+const ALLOWED_BASH_COMMANDS = ['node'];
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_DIR = path.join(HERE, 'plugin');

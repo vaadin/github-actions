@@ -4,6 +4,8 @@
 // Usage:
 //   hunks.mjs split    --diff pr.diff --out <WORK>
 //       Writes <WORK>/hunks.json and <WORK>/annotated.md: one "## H07" section per hunk with its diff.
+//       Also writes <WORK>/history.md: for each code hunk, the commits that changed its old lines, from the
+//       worktree <WORK>/src/base, so the skill reads the history without running git itself.
 //   hunks.mjs chain    --work <WORK>
 //       Checks <WORK>/chain.md: every code hunk raises a question, every question has an answer from the code or
 //       an '- Unexplained:' line, and every link of the chain refers to the questions that prove it.
@@ -28,6 +30,7 @@
 //
 // Lines without a name in them (braces, blank lines), imports and comments are not checked: the slides
 // leave them out on purpose. Test files, screenshots and generated files are listed but not required.
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -84,9 +87,10 @@ function kindOf(path) {
 function split(diffText) {
   const hunks = [];
   let path = null;
+  let oldPath = null;
   let cur = null;
   const newHunk = (header) => {
-    const h = { id: `H${String(hunks.length + 1).padStart(2, '0')}`, path, kind: kindOf(path || ''), header, add: [], del: [], lines: [] };
+    const h = { id: `H${String(hunks.length + 1).padStart(2, '0')}`, path, oldPath, kind: kindOf(path || ''), header, add: [], del: [], lines: [] };
     hunks.push(h);
     return h;
   };
@@ -94,7 +98,10 @@ function split(diffText) {
     if (line.startsWith('diff --git ')) {
       const m = /^diff --git a\/(.*) b\/(.*)$/.exec(line);
       path = m ? m[2] : words(line).at(-1);
+      oldPath = m ? m[1] : null;
       cur = null;
+    } else if (line.startsWith('--- ')) {
+      oldPath = line.startsWith('--- /dev/null') ? null : line.slice(4).replace(/^a\//, '');
     } else if (line.startsWith('+++ ') && !line.startsWith('+++ /dev/null')) {
       path = line.slice(4).replace(/^b\//, '');
     } else if (line.startsWith('Binary files ')) {
@@ -123,6 +130,26 @@ function annotatedMd(hunks) {
     if (h.header === 'binary') out.push('(binary file)');
     else out.push('```diff', h.header, ...h.lines, '```');
     out.push('');
+  }
+  return out.join('\n');
+}
+
+// The history of the old lines of each code hunk, as Markdown: the commits of `git log -L` in the base worktree.
+// A hunk of a new file has no old lines and no history.
+function historyMd(hunks, base) {
+  const out = ['# History of the changed lines', ''];
+  for (const h of hunks) {
+    const m = /^@@ -(\d+)(?:,(\d+))? /.exec(h.header);
+    if (h.kind !== 'code' || !m || !h.oldPath) continue;
+    const start = Number(m[1]);
+    const count = m[2] === undefined ? 1 : Number(m[2]);
+    if (!count) continue;
+    const range = `${start},${start + count - 1}`;
+    out.push(`## ${h.id} ${h.oldPath} L${range.replace(',', '-')}`, '');
+    const res = spawnSync('git', ['-C', base, 'log', '-L', `${range}:${h.oldPath}`, '-s', '--format=%h %ad %s', '--date=short', '-n', '10'],
+      { encoding: 'utf8', maxBuffer: 1 << 26 });
+    const lines = res.status === 0 ? splitlines(res.stdout).filter(Boolean) : [];
+    out.push(...(lines.length ? lines.map((l) => `- ${l}`) : [res.status === 0 ? 'none' : `git log failed: ${(res.stderr || '').trim().split('\n')[0]}`]), '');
   }
   return out.join('\n');
 }
@@ -167,6 +194,8 @@ function cmdSplit(args) {
   const hunks = split(read(args.diff));
   writeFileSync(join(args.out, 'hunks.json'), JSON.stringify(hunks, null, 1));
   writeFileSync(join(args.out, 'annotated.md'), annotatedMd(hunks));
+  const base = join(args.out, 'src', 'base');
+  if (existsSync(base)) writeFileSync(join(args.out, 'history.md'), historyMd(hunks, base));
   for (const h of hunks) console.log(`${h.id}  ${h.kind.padEnd(10)} +${h.add.length} -${h.del.length}  ${h.path}`);
 }
 
