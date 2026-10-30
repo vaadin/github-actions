@@ -6,11 +6,12 @@
 //       Writes <WORK>/hunks.json and <WORK>/annotated.md: one "## H07" section per hunk with its diff.
 //   hunks.mjs chain    --work <WORK>
 //       Checks <WORK>/chain.md: every code hunk raises a question, every question has an answer from the code or
-//       is open, every open question has a kind, and every link of the chain refers to the questions that prove it.
+//       an '- Unexplained:' line, every review note has a text, and every link of the chain refers to the questions that
+//       prove it.
 //   hunks.mjs plan     --work <WORK>
 //       Checks <WORK>/plan.md: every code hunk ID under "Hunks:" or "Omitted:" with a reason (tests
-//       are not shown), tips of at most 20 words whose keys are in the code of their side, open-question tips that
-//       name an open question of chain.md with the same kind, at most 4 new things per slide, each name in
+//       are not shown), tips of at most 20 words whose keys are in the code of their side, note tips that
+//       name a question of chain.md with a note of the same kind, at most 4 new things per slide, each name in
 //       Introduces in the slide's code, line ranges that start at real code, and each slide estimated to fit one screen.
 //   hunks.mjs reader   --work <WORK>
 //       Writes <WORK>/reader/slides/: the deck as the reader sees it (title slide, titles, sentences, code, tips), from plan.md, without the notes, one numbered file per slide. The reader check of the skill
@@ -19,7 +20,7 @@
 //   hunks.mjs build    --work <WORK>
 //       Writes <WORK>/slides.json from plan.md and chain.md, the input of build.mjs: the code of each line range as
 //       the deck shows it (no comment lines, one "..." per skipped range, the common indentation of each file
-//       removed), the tips, and the open questions with the slide that holds their tip.
+//       removed), the tips, and the notes with the slide that holds their tip.
 //       See references/slides-json.md.
 //   hunks.mjs slides   --work <WORK>
 //       Checks which changed lines of each hunk appear in the code of <WORK>/slides.json.
@@ -37,13 +38,13 @@ const GENERATED_RE = /(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|\.snap)$/;
 const COMMENT_RE = /^(\/\/|\/\*|\*|<!--|#\s)/;
 const GAP_RE = /(?<![\w$.])(?:\.\.\.|…)(?![\w$.])/;
 
-// The kinds of an open question, as chain.md lists them and as a tip starts
-const OPEN_KINDS = ['Suspected bug', 'Unexplained', 'Unused'];
-const KINDS_RE = OPEN_KINDS.join('|');
-// "- Unused (Q6, Q15): text" under "## Open questions" of chain.md
-const OPEN_ITEM_RE = new RegExp(`^- (${KINDS_RE}) \\((Q\\d+(?:,\\s*Q\\d+)*)\\):\\s*(.+)$`);
-// The tip of an open question starts with its kind and questions: "Unused (Q6): text"
-const OPEN_TIP_RE = new RegExp(`^(${KINDS_RE}) \\((Q\\d+(?:,\\s*Q\\d+)*)\\):`);
+// The kinds of a review note, as a question of chain.md marks it and as a tip starts
+const NOTE_KINDS = ['Suspected bug', 'Unexplained'];
+const KINDS_RE = NOTE_KINDS.join('|');
+// "- Unexplained: text" in the entry of a question of chain.md
+const NOTE_LINE_RE = new RegExp(`^- (${KINDS_RE}):[ \\t]*(.*)$`, 'gm');
+// The tip of a review note starts with its kind and questions: "Unexplained (Q6): text"
+const NOTE_TIP_RE = new RegExp(`^(${KINDS_RE}) \\((Q\\d+(?:,\\s*Q\\d+)*)\\):`);
 // "- `key` (after): text" under "Tips:" of a slide; the key may be wrapped in double backticks
 const TIP_RE = /^- (``?)(.+?)\1 \((before|after|both)\): (.+)$/gm;
 // "- src/head/<path> L12-20, skip L14-16 (context)" under Before:, After: or a step
@@ -370,21 +371,22 @@ function chainSections(text) {
   return sections;
 }
 
-// The open questions of chain.md: items {kind, questions: ["Q11"], text}, and the lines that are not in the format.
-// An indented line continues the item before it.
-function openQuestions(text) {
+// The questions of chain.md: [id, source, body] for each "### Q1 (from H01): ..." under "## Questions"
+function chainQuestions(text) {
+  return [...(chainSections(text)['Questions'] || '').matchAll(/^### (Q\d+) \(from ([^)]*)\):.*?\n([\s\S]*?)(?=^### |^## |(?![\s\S]))/gm)]
+    .map((m) => [m[1], m[2], m[3]]);
+}
+
+// The review notes of chain.md, from the '- Suspected bug:' and '- Unexplained:' lines of its questions:
+// items {kind, questions: ["Q11"], text}, and the lines without a text.
+function chainNotes(text) {
   const items = [];
   const bad = [];
-  for (const line of (chainSections(text)['Open questions'] || '').split('\n')) {
-    const s = line.trim();
-    if (!s || /^none$/i.test(s)) continue;
-    if (/^\s/.test(line) && items.length && !s.startsWith('- ')) {
-      items.at(-1).text += ' ' + s;
-      continue;
+  for (const [q, , body] of chainQuestions(text)) {
+    for (const m of body.matchAll(NOTE_LINE_RE)) {
+      if (m[2].trim()) items.push({ kind: m[1], questions: [q], text: m[2].trim() });
+      else bad.push(`${q}: '- ${m[1]}:'`);
     }
-    const m = OPEN_ITEM_RE.exec(s);
-    if (m) items.push({ kind: m[1], questions: m[2].split(/,\s*/), text: m[3].trim() });
-    else bad.push(s);
   }
   return { items, bad };
 }
@@ -395,7 +397,7 @@ function cmdPlan(args) {
   const hunks = JSON.parse(read(join(work, 'hunks.json')));
   const text = read(join(work, 'plan.md'));
   const chainFile = join(work, 'chain.md');
-  const open = isFile(chainFile) ? openQuestions(read(chainFile)).items : null;
+  const notes = isFile(chainFile) ? chainNotes(read(chainFile)).items : null;
   let problems = 0;
   const head = planHead(text);
   const placed = new Set();
@@ -458,15 +460,15 @@ function cmdPlan(args) {
         console.log(`TIP KEY NOT IN CODE \`${t.key}\` (${t.side}): ${title} (exact text of a name, a call or a line on that side)`);
         problems += 1;
       }
-      const o = OPEN_TIP_RE.exec(t.text);
-      if (o && open) {
+      const o = NOTE_TIP_RE.exec(t.text);
+      if (o && notes) {
         for (const q of o[2].split(/,\s*/)) {
-          const item = open.find((it) => it.questions.includes(q));
+          const item = notes.find((it) => it.questions.includes(q));
           if (!item) {
-            console.log(`OPEN TIP ${q} is not in 'Open questions' of chain.md: ${title}`);
+            console.log(`NOTE TIP ${q} has no '- ${o[1]}:' line in chain.md: ${title}`);
             problems += 1;
           } else if (item.kind !== o[1]) {
-            console.log(`OPEN TIP ${q} is '${o[1]}' here but '${item.kind}' in chain.md: ${title}`);
+            console.log(`NOTE TIP ${q} is '${o[1]}' here but '${item.kind}' in chain.md: ${title}`);
             problems += 1;
           }
         }
@@ -474,7 +476,7 @@ function cmdPlan(args) {
     }
   }
   console.log(`${problems} problem(s): every code hunk on a slide or omitted with a reason, tips at most ${TIP_WORDS} words ` +
-    `with keys in the code, open-question tips from chain.md, at most ${MAX_NEW} new things per slide, names in Introduces in the code, each slide fits one screen`);
+    `with keys in the code, note tips from chain.md, at most ${MAX_NEW} new things per slide, names in Introduces in the code, each slide fits one screen`);
   process.exit(problems ? 1 : 0);
 }
 
@@ -538,10 +540,10 @@ function cmdBuild(args) {
   const text = read(join(work, 'plan.md'));
   const head = planHead(text);
   const chainFile = join(work, 'chain.md');
-  const open = isFile(chainFile) ? openQuestions(read(chainFile)).items : [];
+  const notes = isFile(chainFile) ? chainNotes(read(chainFile)).items : [];
   const problems = [];
   const doc = { summary: plain(planLine(head, 'Summary')), omitted: parseOmitted(planLine(head, 'Omitted')),
-    open: open.map((o) => ({ ...o, text: plain(o.text) })), slides: [] };
+    notes: notes.map((o) => ({ ...o, text: plain(o.text) })), slides: [] };
   if (!doc.summary) problems.push("NO SUMMARY: write 'Summary: ...' at the top of plan.md");
   const tipSlide = {};
   planSlides(text).forEach((slide, idx) => {
@@ -571,13 +573,13 @@ function cmdBuild(args) {
     for (const t of slideTips(slide)) {
       const field = t.side === 'both' ? 'tips' : `${t.side}Tips`;
       (out[field] ||= {})[t.key] = plain(t.text);
-      const m = OPEN_TIP_RE.exec(t.text);
+      const m = NOTE_TIP_RE.exec(t.text);
       if (m) for (const q of m[2].split(/,\s*/)) tipSlide[q] ||= n;
     }
     doc.slides.push(out);
   });
-  // The closing slide links each open question to the first slide with its tip
-  for (const o of doc.open) {
+  // The closing slide links each note to the first slide with its tip
+  for (const o of doc.notes) {
     const n = o.questions.map((q) => tipSlide[q]).find(Boolean);
     if (n) o.slide = n;
   }
@@ -589,24 +591,22 @@ function cmdBuild(args) {
   }
   const out = join(work, 'slides.json');
   writeFileSync(out, JSON.stringify(doc, null, 1));
-  console.log(`Wrote ${out}: ${doc.slides.length} slides, ${doc.open.length} open question(s), ${Object.keys(doc.omitted).length} omitted hunk(s)`);
+  console.log(`Wrote ${out}: ${doc.slides.length} slides, ${doc.notes.length} note(s), ${Object.keys(doc.omitted).length} omitted hunk(s)`);
 }
 
-// What the investigation must keep: every code hunk raises a question, every question has an answer or is
-// open with a kind, and every link of the chain refers to the questions that prove it.
+// What the investigation must keep: every code hunk raises a question, every question has an answer or an
+// '- Unexplained:' line, and every link of the chain refers to the questions that prove it.
 function cmdChain(args) {
   const work = args.work;
   const hunks = JSON.parse(read(join(work, 'hunks.json')));
   const text = read(join(work, 'chain.md'));
   const sections = chainSections(text);
   let problems = 0;
-  const questions = [...(sections['Questions'] || '').matchAll(/^### (Q\d+) \(from ([^)]*)\):.*?\n([\s\S]*?)(?=^### |^## |(?![\s\S]))/gm)]
-    .map((m) => [m[1], m[2], m[3]]);
+  const questions = chainQuestions(text);
   if (!questions.length) {
     console.log("NO QUESTIONS: write them under '## Questions' as '### Q1 (from H01): ...'");
     problems += 1;
   }
-  const openText = sections['Open questions'] || '';
   const started = new Set(questions.flatMap(([, src]) => src.match(/\bH\d{2,}\b/g) || []));
   for (const h of hunks) {
     if (h.kind === 'code' && !started.has(h.id)) {
@@ -614,11 +614,12 @@ function cmdChain(args) {
       problems += 1;
     }
   }
+  const { items, bad } = chainNotes(text);
   for (const [q, , body] of questions) {
     const answer = /^- Answer:\s*(\S.*)$/m.exec(body);
     const looked = /^- Looked at:\s*(\S.*)$/m.exec(body);
-    if (!answer && !new RegExp(`\\b${q}\\b`).test(openText)) {
-      console.log(`NO ANSWER ${q}: answer it from the code, or put it in 'Open questions'`);
+    if (!answer && !items.some((it) => it.kind === 'Unexplained' && it.questions.includes(q))) {
+      console.log(`NO ANSWER ${q}: answer it from the code, or add '- Unexplained: <what nothing answers>'`);
       problems += 1;
     }
     if (answer && !looked) {
@@ -626,17 +627,9 @@ function cmdChain(args) {
       problems += 1;
     }
   }
-  const ids = new Set(questions.map(([q]) => q));
-  const { items, bad } = openQuestions(text);
   for (const s of bad) {
-    console.log(`OPEN QUESTION WITHOUT KIND: ${s.slice(0, 80)} (write '- Suspected bug (Q11): ...', '- Unexplained (...): ...' or '- Unused (...): ...')`);
+    console.log(`NOTE WITHOUT TEXT ${s.slice(0, 80)}`);
     problems += 1;
-  }
-  for (const it of items) for (const q of it.questions) {
-    if (!ids.has(q)) {
-      console.log(`OPEN ${q} is not a question under '## Questions'`);
-      problems += 1;
-    }
   }
   const links = [...(sections['Chain'] || '').matchAll(/^\d+\. (.*)$/gm)].map((m) => m[1]);
   if (!links.length) {
@@ -649,11 +642,7 @@ function cmdChain(args) {
       problems += 1;
     }
   });
-  if (!('Open questions' in sections)) {
-    console.log("NO 'Open questions' section: write 'none' if there are none");
-    problems += 1;
-  }
-  console.log(`${problems} problem(s): ${questions.length} questions, ${links.length} links in the chain, ${items.length} open question(s)`);
+  console.log(`${problems} problem(s): ${questions.length} questions, ${links.length} links in the chain, ${items.length} note(s)`);
   process.exit(problems ? 1 : 0);
 }
 

@@ -6,7 +6,7 @@
 {
   "summary": "A maximum of three short sentences for the title slide.",
   "omitted": {"H14": "Why this code hunk is on no slide."},
-  "open": [
+  "notes": [
     {"kind": "Suspected bug", "questions": ["Q11"], "text": "One to three sentences from chain.md.", "slide": 9}
   ],
   "slides": [
@@ -42,7 +42,7 @@
 ## Title and closing slide
 
 - `summary` is the title slide.
-- `open` is the closing slide "Review notes": the open questions of `chain.md` by kind. `kind` is `Suspected bug`, `Unexplained` or `Unused`. `slide` is the number of the first slide, from 1, whose tip starts with the kind and one of the `questions`; the page links to it. An item without `slide` is listed without a link.
+- `notes` is the closing slide "Review notes": the notes of `chain.md` by kind. `kind` is `Suspected bug` or `Unexplained`. `slide` is the number of the first slide, from 1, whose tip starts with the kind and one of the `questions`; the page links to it. An item without `slide` is listed without a link.
 - `omitted` is shown by `hunks.mjs slides`, not on the page.
 
 ## Slides
@@ -77,4 +77,4 @@
 - `tips` apply to the two panes. `beforeTips` and `afterTips` apply to one pane.
 - A key that matches no code is a build error.
 - The page shows inline code in backticks in all texts and tips.
-- A tip that starts with an open-question kind (`Suspected bug (Q8): ...`) is a review note: the page marks its code with a wavy underline and shows the tip in red for a suspected bug, orange for the other kinds. Other tips have a dotted underline and a dark tooltip.
+- A tip that starts with a note kind (`Suspected bug (Q8): ...`) is a review note: the page marks its code with a wavy underline and shows the tip in red for a suspected bug, orange for the other kinds. Other tips have a dotted underline and a dark tooltip.

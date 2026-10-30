@@ -19,7 +19,7 @@ const ASSETS = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets');
 const TEMPLATE = join(ASSETS, 'template.html');
 
 const CHUNK_KEYS = new Set(['code', 'caption', 'context', 'file']);
-const OPEN_KINDS = ['Suspected bug', 'Unexplained', 'Unused'];
+const NOTE_KINDS = ['Suspected bug', 'Unexplained'];
 const GAP_RE = /(?<![\w$.])\.\.\.(?![\w$.])/;
 
 const splitlines = (text) => { const a = text.split(/\r?\n/); if (a.length && a.at(-1) === '') a.pop(); return a; };
@@ -125,13 +125,13 @@ function validate(doc) {
   if (!nonEmpty(doc.summary)) errors.push("'summary' is missing");
   const slides = doc.slides;
   if (!Array.isArray(slides) || !slides.length) return [...errors, "'slides' must be a non-empty array"];
-  const open = doc.open ?? [];
-  if (!Array.isArray(open)) errors.push("'open' must be a list of open questions");
-  else open.forEach((o, i) => {
-    if (!isObj(o) || !OPEN_KINDS.includes(o.kind) || !Array.isArray(o.questions) || !nonEmpty(o.text)) {
-      errors.push(`open[${i}]: needs 'kind' (${OPEN_KINDS.join(', ')}), 'questions' and 'text'`);
+  const notes = doc.notes ?? [];
+  if (!Array.isArray(notes)) errors.push("'notes' must be a list of notes");
+  else notes.forEach((o, i) => {
+    if (!isObj(o) || !NOTE_KINDS.includes(o.kind) || !Array.isArray(o.questions) || !nonEmpty(o.text)) {
+      errors.push(`notes[${i}]: needs 'kind' (${NOTE_KINDS.join(', ')}), 'questions' and 'text'`);
     } else if ('slide' in o && !(Number.isInteger(o.slide) && o.slide >= 1 && o.slide <= slides.length)) {
-      errors.push(`open[${i}].slide: must be the number of a slide, from 1`);
+      errors.push(`notes[${i}].slide: must be the number of a slide, from 1`);
     }
   });
   slides.forEach((sl, i) => {
@@ -265,7 +265,7 @@ function main() {
   const data = {
     pr: { number: pr.number, title: pr.title, url: pr.url, repo: pr.url.split('/').slice(3, 5).join('/') },
     summary: doc.summary,
-    open: doc.open || [],
+    notes: doc.notes || [],
     slides: doc.slides,
   };
   const payload = JSON.stringify(data).replace(/<\//g, '<\\/');

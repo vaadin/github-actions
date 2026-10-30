@@ -1,6 +1,6 @@
 ---
 name: pr-presentation
-description: Turn a GitHub pull request into an HTML slide deck that explains the change from its code, not from the PR description: each hunk raises questions, the code answers them, and the slides tell that chain step by step (background code, bugs as steps, fixes as old and new code, tooltips). Questions the code cannot answer stay as review notes by kind (suspected bug, unexplained, unused) on a closing slide. Use when the user wants a high-level or "zoomed out" view of a PR, a guided tour or presentation of it, or an easier way to read a diff, even if they only share a PR link.
+description: Turn a GitHub pull request into an HTML slide deck that explains the change from its code, not from the PR description: each hunk raises questions, the code answers them, and the slides tell that chain step by step (background code, bugs as steps, fixes as old and new code, tooltips). Questions the code cannot answer stay as review notes (suspected bug, unexplained) on a closing slide. Use when the user wants a high-level or "zoomed out" view of a PR, a guided tour or presentation of it, or an easier way to read a diff, even if they only share a PR link.
 argument-hint: <pr-url> <work-dir>
 allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(gh *), Bash(git *), Bash(mkdir *), Bash(node *)
 ---
@@ -14,16 +14,17 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(gh *), Bash(git *), Ba
 - Hunk: one changed block of the diff, `H01`, `H02` and so on.
 - Question: what a hunk or an answer leaves unexplained.
 - Answer: one to three sentences, with the file and lines that prove them.
-- Open question: a question that the code, the issues and the history leave unanswered, or that the code answers in a way that looks wrong. It has a kind: suspected bug, unexplained or unused. It stays in the deck as a review note, in a tip on the code and on the closing slide. It marks a place where the implementation must be trusted instead of understood, so it can show a problem in the PR.
+- Unexplained: a question that the code, the issues and the history leave unanswered.
+- Suspected bug: a case where the code does something wrong, found while answering a question.
+- Suspected bugs and unexplained questions are review notes. They stay in the deck, in a tip on the code and on the closing slide. They mark a place where the implementation must be trusted instead of understood, so it can show a problem in the PR.
 - Chain: the facts in the order a new reader needs them: how the code works, what was wrong, how each change corrects it.
-- Area: code outside the change that the chain needs.
 - New thing: a name or concept that no earlier slide explained, also a term from outside the code.
 
-**Logical chain.** The deck tells the chain: one or more facts per slide, with the code that proves them. Each fact follows from the facts before it and refers to the questions that prove it. Each code hunk is part of the chain. A hunk that no fact needs is an open question.
+**Logical chain.** The deck tells the chain: one or more facts per slide, with the code that proves them. Each fact follows from the facts before it and refers to the questions that prove it. Each code hunk is part of the chain. A hunk that no fact needs is unexplained.
 
-**Questions.** Start from the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. Answers raise new questions, also about unchanged code. Ask those too: they show which areas the reader must know.
+**Questions.** Start from the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. Answers raise new questions, also about unchanged code. Ask those too: they show which code outside the change the reader must know.
 
-**Answers.** Answer each question from the code. Read the lines, then write the answer and where you found it. Do not answer from memory. If the code cannot answer, check the issues and the history of the lines. If they cannot either, do not guess: record an open question with its kind. Stop when every question has an answer or is open.
+**Answers.** Answer each question from the code. Read the lines, then write the answer and where you found it. Do not answer from memory. If the code cannot answer, check the issues and the history of the lines. If they cannot either, do not guess: mark it unexplained. Stop when every question has an answer or is unexplained.
 
 Four steps do this work. A reader agent that sees nothing but the slides checks the plan, and scripts build the deck from it. Start each agent in the foreground (`run_in_background: false`) and wait for its reply. Do not continue an agent with `SendMessage`: start a new one. The steps pass their results in files under `<WORK>`. `<SKILL>` is the base directory of this skill, printed as "Base directory for this skill" when it is invoked. `$0` is the PR URL. `$1` is `<WORK>`, the folder for all files of the run; create it if it does not exist. If an argument is missing, stop and report it.
 
@@ -68,28 +69,29 @@ Ask and answer as described above. Write `<WORK>/chain.md` in this format:
 - Answer: `selected` has the observer `_selectedChanged`, which writes `aria-selected`.
 - New questions: none
 
-## Areas
+### Q3 (from H02): How does `__attachSelectedItem` make the copy?
+- Looked at: src/head/packages/select/src/vaadin-select-base-mixin.js L475-489, L517-526
+- Answer: an item with a `label` attribute gets a new item with that text. Any other item is copied with `cloneNode(true)`, and `__appendValueItemElement` removes `selected`, `aria-selected`, `tabindex` and the focus states from the copy.
+- Suspected bug: a cloned item keeps its `id`. When the application sets an `id` on an item, the page has two elements with that `id`.
+- New questions: none
 
-- The `selected` property of an item and its observer (src/base/packages/item/src/vaadin-item-mixin.js L30-34, L104-106): Q2
+### Q4 (from H03): Why does the change remove `aria-selected` from the copy, and not stop `_selectedChanged` from writing it?
+- Looked at: src/base/packages/item/src/vaadin-item-mixin.js L104-106, the linked issue in context.md, the history of src/base/packages/select/src/vaadin-select-base-mixin.js L517-526
+- Unexplained: both places would fix the bug. The issue and the history do not tell why the change picks the copy.
+- New questions: none
 
 ## Chain
 
-1. The field shows one item: a copy of the selected item, or a placeholder item. (Q4)
-2. `__appendValueItemElement` removes `aria-selected` from the copy. (Q3)
-
-## Open questions
-
-- Unused (Q6): `__attachSelectedItem` still checks `item.hasAttribute('selected')`, but no caller passes an item with the attribute.
+1. The field shows a copy of the selected item, and only this copy gets `selected`, so the Lumo rule can find the placeholder item. (Q1, Q3)
+2. Setting `selected` makes the observer `_selectedChanged` write `aria-selected` on the copy. (Q2)
 ````
 
 - Each question names the hunk or the question that raised it.
-- "Areas" lists the code outside the change that the chain needs, with the questions that need it.
 - Keep only the facts the reader needs to follow what was wrong and how the change corrects it. If the change removes an attribute that must not be there, the chain needs the code that adds and removes it, not the reason the attribute is wrong in the accessibility standard.
-- Open questions have a kind, the first words of the item:
-  - **Suspected bug**: the code does something wrong in a case you found by reading it. Name the case. It is a finding from reading, not from running the code.
-  - **Unexplained**: a change, a value or a check without a reason in the code, the issues or the history.
-  - **Unused**: a check or a hunk that no case reaches today, or that no fact of the chain needs.
-- A question can have an answer and be open: the answer says what the code does, the open item says why that looks wrong or needs the author.
+- Q1 and Q2 have no review line: they are answered, and nothing in the answers looks wrong.
+- Review notes are lines in the entry of their question. There is no separate list: the closing slide is built from these lines.
+  - `- Unexplained: <what nothing answers>`: the code, the issues and the history give no answer, for example no reason for a change, a value or a check. A question without an answer must have this line. It can also follow an answer that tells what the code does but not why.
+  - `- Suspected bug: <case>`: the code does something wrong in a case you found by reading it. Name the case. It is a finding from reading, not from running the code.
 
 Check, correct each problem, repeat until it shows none:
 
@@ -113,8 +115,8 @@ The reader reads the deck alone, in a browser, before the diff. Read `<SKILL>/re
 
 - Put the slides in the order of the chain. Each slide shows one or more facts and the lines from "Looked at" of their questions.
 - Show only what the chain needs. If a slide needs a new fact, add its question and answer to `chain.md` first.
-- An area gets a slide of its own only if the chain needs it before the first change, and only the lines the chain uses.
-- Show each open question in a tip on the code it is about, starting with its kind and its questions: `Suspected bug (Q11): ...`, `Unexplained (Q17): ...`, `Unused (Q6, Q15): ...`. It is a review note for the author, not part of the explanation: the reader check skips it, and it is not a new thing. The page marks its code with a wavy underline, red for a suspected bug and orange for the other kinds, and shows the tip in the same color. The closing slide "Review notes" lists every open question of `chain.md` by kind, with a link to the slide that holds its tip. An open question without code on a slide is only on the closing slide.
+- Code outside the change (a file in "Looked at" that the diff does not touch) gets a slide of its own only if the chain needs it before the first change, and only the lines the chain uses.
+- Show each review note in a tip on the code it is about, starting with its kind and its questions: `Suspected bug (Q3): ...`, `Unexplained (Q4): ...`. It is for the author, not part of the explanation: the reader check skips it, and it is not a new thing. The page marks its code with a wavy underline, red for a suspected bug and orange for an unexplained question, and shows the tip in the same color. The closing slide "Review notes" lists every review note of `chain.md` by kind, with a link to the slide that holds its tip. A review note without code on a slide is only on the closing slide.
 - Do not show tests, snapshots or screenshots.
 
 Kinds of slides:
@@ -187,10 +189,10 @@ Labels: Old / New                                <- only if not "Before / After"
 Before:
 - src/base/<path> L475-492, skip L476-487
 After:
-- src/head/<path> L475-489, skip L476-487
+- src/head/<path> L475-489, skip L476-480
 Tips:
 - `itemElement.removeAttribute('selected');` (after): what this line does against the bug.
-- `item.hasAttribute('selected')` (after): Unused (Q6): no caller passes an item with the attribute.
+- `selected.cloneNode(true)` (after): Suspected bug (Q3): the copy keeps the item's `id`, so two elements share it.
 ````
 
 - A code reference is `src/base/...` (old code) or `src/head/...` (new code), with lines and optional skips. A skipped range shows as one `...` line. Add `(context)` for unchanged code, `(caption: "...")` for a heading.
@@ -211,7 +213,7 @@ The reader knows nothing but the slides: not this skill, not the PR, not the pla
 
 1. Run `node <SKILL>/scripts/hunks.mjs reader --work <WORK>`. It writes one numbered file per slide to `<WORK>/reader/slides/` and removes the `reading.md` of an earlier round.
 2. Start a new agent in the foreground with `model: "sonnet"`. Its prompt is the full text of `<SKILL>/references/reader.md`, with `<REPO>` replaced by `<WORK>/src/head`, `<SLIDES>` by `<WORK>/reader/slides` and `<NOTES>` by `<WORK>/reader/reading.md`. Add nothing else.
-3. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove it. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. Open-question tips stay. Keep the rules of step 4; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
+3. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove it. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. Review note tips stay. Keep the rules of step 4; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
 4. Repeat with a new reader agent. Stop when `reading.md` has no items, or after two corrections.
 
 ## 6. Build
