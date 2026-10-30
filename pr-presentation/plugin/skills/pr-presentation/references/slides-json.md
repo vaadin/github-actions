@@ -24,8 +24,7 @@
       "steps": [
         {"text": "One sentence.", "where": "__appendValueItemElement", "code": "itemElement.removeAttribute('aria-selected');"},
         {"text": "One sentence.", "where": "__attachSelectedItem", "code": "labelItem.selected = true;"}
-      ],
-      "tips": {"labelItem.selected = true;": "Bug: ..."}
+      ]
     },
     {
       "title": "Remove selected from the copy",

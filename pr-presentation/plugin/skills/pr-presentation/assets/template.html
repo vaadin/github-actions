@@ -599,7 +599,7 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
     var nsec = el('section', 'slide'), nbody = el('div', 'concept'), nhead = el('div', 'head');
     nhead.appendChild(el('h2', null, 'Review notes'));
     nbody.appendChild(nhead);
-    nbody.appendChild(el('p', 'lead', 'Questions that the code does not answer. Each one can show a problem in the PR; the author can settle it.'));
+    nbody.appendChild(el('p', 'lead', 'Places where the code looks wrong or nothing tells why. Each one can show a problem in the PR; the author can settle it.'));
     var notes = el('div', 'notes');
     KINDS.forEach(function (kind) {
       var items = open.filter(function (o) { return o.kind === kind[0]; });
