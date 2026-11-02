@@ -214,13 +214,15 @@ function cmdSlides(args) {
 
 const TIP_WORDS = 20;
 const MAX_NEW = 4;
-// Height of one screen in the page's pixels, and the parts of a slide, measured on built decks
+// Height of one screen in the page's pixels, and the parts of a slide, measured on built decks. The line and
+// text sizes are scaled from those measures to the current fonts: 20px text, 16px code, 14px context code.
+// PANE and CTX_PANE: code panes have no label row
 const SCREEN = 790;
-const HEAD = 88, TEXT_LINE = 30, TEXT_CHARS = 120;
-const LINE = 24, BLANK = 12, PANE = 40, CHUNK = 16;
-const CTX_LINE = 20, CTX_PANE = 36, CTX_CHUNK = 12;
-const FILE = 20;
-const STEP_LINE = 24, STEP_TEXT = 28, STEP_PANE = 44, STEP_ARROW = 24;
+const HEAD = 88, TEXT_LINE = 29, TEXT_CHARS = 126;
+const LINE = 25, BLANK = 12, PANE = 11, CHUNK = 16;
+const CTX_LINE = 21, CTX_PANE = 11, CTX_CHUNK = 12;
+const FILE = 20, NEW_FILE = 16;
+const STEP_LINE = 25, STEP_TEXT = 30, STEP_PANE = 44, STEP_ARROW = 24;
 const COMMENT_START_RE = /^\s*(\/\/|\/\*|\*|<!--|#\s|})/;
 
 // The lines as the deck shows them: no comment lines, no run of blank lines, no blank line at the ends.
@@ -282,7 +284,9 @@ function slideHeight(text, sides) {
   const code = (refs, line, pane, chunk) => {
     if (!refs.length) return 0;
     const lines = refs.flatMap((r) => r.shown || []);
-    return lines.reduce((s, l) => s + (l.trim() ? line : BLANK), 0) + pane + chunk * refs.length;
+    // A chunk that starts another file below an earlier chunk gets more space above it (.new-file)
+    const newFiles = refs.filter((r, i) => i > 0 && r.file !== refs[i - 1].file).length;
+    return lines.reduce((s, l) => s + (l.trim() ? line : BLANK), 0) + pane + chunk * refs.length + NEW_FILE * newFiles;
   };
   // Each chunk names its file; the page shows all context in one pane below, the same code once
   const main = sides.map((refs) => code(refs.filter((r) => !r.ctx), LINE, PANE, CHUNK + FILE));
@@ -562,9 +566,6 @@ function cmdBuild(args) {
         const chunks = sideChunks(sides[i]);
         if (chunks.length) out[side] = chunks;
       });
-      const labels = planLine(slide, 'Labels').split('/').map((s) => s.trim()).filter(Boolean);
-      if (labels.length >= 2) [out.beforeLabel, out.afterLabel] = labels;
-      else if (labels.length === 1) out[out.after ? 'afterLabel' : 'beforeLabel'] = labels[0];
       if (/^off$/i.test(planLine(slide, 'Align'))) out.align = false;
     }
     for (const t of slideTips(slide)) {

@@ -152,7 +152,7 @@ Code:
 - Show an unchanged line only if it opens a shown block, or the text or a tip mentions it. A one-line change gets a few lines, not a full method.
 - Do not show comments. The build leaves comment lines out of every range.
 - Each piece of code on one slide only. Exception: the fix slide shows the changed lines of the bug slide again.
-- Mark all unchanged code `(context)`, on either side. The page shows it below the changed code. `Labels:` names only changed code.
+- Mark all unchanged code `(context)`, on either side. The page shows it below the changed code.
 - Put old and new versions of the same code at the same chunk position, so the page aligns them and marks the changes. If the two sides are not versions of the same code, set `Align: off`.
 
 Conditions: when the change touches a condition (a selector, an `if`, a flag check), the slide text tells what the old condition matched in practice and why the new one matches the same. Example: "The old selector `:not([selected])` matched only the placeholder item, because every copy had `selected`. The button has `placeholder` only while it shows that item, so the new selector matches the same item."
@@ -194,7 +194,6 @@ Steps:
 Hunks: H01, H02
 Text: how the change removes the cause.
 Introduces: ...
-Labels: Old / New                                <- only if not "Before / After"
 Before:
 - src/base/<path> L475-492, skip L476-487
 After:
