@@ -64,7 +64,7 @@ The job needs `pull-requests: write` (post the review) and `issues: write`
 |---|---|---|---|
 | `anthropic-api-key` | yes | | Anthropic API key (pass `secrets.ANTHROPIC_API_KEY`). |
 | `pr-number` | yes | | Number of the pull request to review. |
-| `github-token` | no | `github.token` | Token used to prepare the review inputs and post the review; its identity is the review author. Pass a bot token to post under a bot identity. |
+| `github-token` | no | `github.token` | Token used to prepare the review inputs (including fetching the merge-base commit, so it needs read access to private repositories) and post the review; its identity is the review author. Pass a bot token to post under a bot identity. |
 | `reference-repos` | no | `''` | Upstream repositories to clone as read-only context, one `owner/repo \| description` per line. |
 | `extra-instructions` | no | `''` | Repository-specific review instructions, injected as project instructions. |
 | `extra-allowed-tools` | no | `''` | Read-only additions to the Bash auto-approve allowlist, comma- or newline-separated, in `--allowedTools` syntax. |
