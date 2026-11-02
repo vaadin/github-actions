@@ -30,9 +30,8 @@ The review session runs the Claude Code CLI directly (pinned in
 (Read/Grep/Glob/Bash only — no write, subagent, or web tools), with a
 read-only Bash command allowlist that is also advertised to the agent.
 
-Shared with the [`claude-code`](../claude-code/) action: optional read-only
-reference repository checkouts, instruction injection, and the session job
-summary.
+Shared scripts in [`lib/`](../lib/) provide optional read-only reference
+repository checkouts, instruction injection, and the session job summary.
 
 ## Tuning
 
