@@ -72,9 +72,7 @@ function checkPanes(where, obj, errors) {
       else if ('file' in c && !nonEmpty(c.file)) errors.push(`${where}.${side}[${k}]: 'file' must be the path of the file in the repo`);
     });
   }
-  for (const f of ['beforeLabel', 'afterLabel', 'text']) {
-    if (f in obj && !nonEmpty(obj[f])) errors.push(`${where}.${f}: must be a non-empty string`);
-  }
+  if ('text' in obj && !nonEmpty(obj.text)) errors.push(`${where}.text: must be a non-empty string`);
   if ('align' in obj && typeof obj.align !== 'boolean') errors.push(`${where}.align: must be true or false`);
   return { before: paneCode(obj.before), after: paneCode(obj.after) };
 }

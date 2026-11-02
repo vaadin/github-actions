@@ -9,11 +9,24 @@
   --bg: #ffffff;
   --fg: #1b1f27;
   --muted: #6b7280;
-  --line: #e5e7eb;
   --accent: #2c5fd6;
   --before-bg: #fdf3f3;
   --after-bg: #f1faf3;
   --ctx-bg: #f5f6f8;
+  /* Pane tags */
+  --before-tag: #f6d5d7;
+  --before-tag-ink: #a1252f;
+  --after-tag: #cfe9d6;
+  --after-tag-ink: #17642d;
+  --ctx-tag: #e3e6eb;
+  --ctx-tag-ink: #4b5563;
+  /* Removed and added lines, and their changed words */
+  --del-bg: rgba(207, 34, 46, .13);
+  --del-chg: rgba(207, 34, 46, .26);
+  --add-bg: rgba(26, 127, 55, .15);
+  --add-chg: rgba(26, 127, 55, .28);
+  /* Inline code in titles and prose */
+  --code-bg: #e9ecf2;
   --tip-bg: rgba(44, 95, 214, .08);
   --note-bg: #fff4e0;
   --note-line: #e08a1e;
@@ -28,6 +41,15 @@
   --tok-ann: #a2470f;
   --font-ui: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
   --font-code: "Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* Font sizes, all multiples of 2 */
+  --fs-h1: 60px;
+  --fs-h2: 30px;
+  --fs-base: 26px;
+  --fs-text: 20px;
+  --fs-meta: 18px;
+  --fs-code: 16px;
+  --fs-small: 14px;
+  --fs-tiny: 12px;
   /* The 1440x810 canvas plus a 4% margin */
   --slide-w: 1498px;
   --slide-h: 842px;
@@ -35,12 +57,13 @@
 }
 html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
 * { font-variant-ligatures: none; }
+
 /* Shower: full mode scales the active slide to the window; list mode (Esc) shows all slides in a grid,
    and a click on one opens it in full mode again */
 #slides { display: contents; }
 .slide {
   position: relative; box-sizing: border-box; width: var(--slide-w); height: var(--slide-h); padding: 16px 29px;
-  overflow: hidden; background: var(--bg); font: 26px/1.3 var(--font-ui);
+  overflow: hidden; background: var(--bg); font: var(--fs-base)/1.3 var(--font-ui);
 }
 .shower.full { overflow: hidden; }
 .shower.full .slide {
@@ -58,95 +81,129 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
 .shower.list .slide * { pointer-events: none; }
 .shower.list .slide.active { outline: 8px solid var(--accent); }
 .progress { position: fixed; left: 0; bottom: 0; height: 3px; background: var(--accent); transition: width .2s; }
-.slide-number { position: fixed; right: 16px; bottom: 10px; color: var(--muted); font: 13px var(--font-ui); }
+.slide-number { position: fixed; right: 16px; bottom: 10px; color: var(--muted); font: var(--fs-small) var(--font-ui); }
 .shower.list .progress, .shower.list .slide-number { display: none; }
 /* Shower's live region for screen readers */
 .region { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-.slide h1, .slide h2 { font-weight: 600; }
-.slide h1 { font-size: 60px; line-height: 1.2; text-wrap: balance; margin: 0 0 24px; }
-.slide h2 { font-size: 30px; line-height: 1.25; margin: 0; }
+
+/* Headings and prose */
+.slide h1, .slide h2, b { font-weight: 600; }
+.slide h1 { font-size: var(--fs-h1); line-height: 1.2; text-wrap: balance; margin: 0 0 24px; }
+.slide h2 { font-size: var(--fs-h2); line-height: 1.25; margin: 0; }
 .slide p { margin: 0; }
+/* Prose: the slide sentence, the summary, step texts and review notes */
+.lead, .step-text, .notes { font-size: var(--fs-text); line-height: 1.5; }
+.lead { color: var(--muted); }
+/* Code in titles and prose: a light chip, so names stand out from the text around them */
+.slide h1 code, .slide h2 code, .lead code, .step-text code, .notes code {
+  font-family: var(--font-code); font-size: .86em; white-space: nowrap; color: var(--fg);
+  background: var(--code-bg); padding: .08em .36em; border-radius: 5px;
+}
 
+/* Title slide */
 .title-slide { height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 0 40px; }
-.title-slide .meta { color: var(--muted); font-size: 18px; margin-bottom: 18px; }
+.title-slide .meta { color: var(--muted); font-size: var(--fs-meta); margin-bottom: 18px; }
 .title-slide .meta a { color: inherit; }
-.title-slide .lead { font-size: 19px; line-height: 1.55; color: var(--muted); max-width: 40em; }
+.title-slide .lead { line-height: 1.55; max-width: 40em; }
 
+/* Content slides: heading, one sentence, then the code */
 .concept { height: 100%; display: flex; flex-direction: column; gap: 18px; }
-.concept .lead { font-size: 21px; line-height: 1.5; color: var(--muted); max-width: 60em; }
 .concept .head { display: flex; align-items: baseline; gap: 16px; }
+.concept .lead { max-width: 60em; }
+
+/* Bug slides: numbered steps, each a sentence and a few lines of old code */
 .steps { display: flex; flex-direction: column; gap: 4px; max-width: 1100px; }
 .step-row { display: grid; grid-template-columns: 34px 1fr; gap: 14px; align-items: start; }
-.step-num { width: 30px; height: 30px; border-radius: 50%; background: var(--fg); color: var(--bg); font-weight: 600; font-size: 15px; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+.step-num {
+  width: 30px; height: 30px; margin-top: 2px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--fg); color: var(--bg); font-weight: 600; font-size: var(--fs-code);
+}
 .step-content { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.step-text { font-size: 19px; line-height: 1.45; }
-.side.step { background: var(--before-bg); padding: 12px 16px; gap: 6px; }
-.side.step .label { text-transform: none; letter-spacing: 0; font-family: var(--font-code); font-size: 13px; }
-.step-arrow { color: var(--muted); font-size: 20px; line-height: 1; padding-left: 7px; }
-/* Closing slide: the open questions by kind, each with a link to the slide that holds its tip */
-.notes { display: flex; flex-direction: column; gap: 20px; max-width: 1100px; }
-.note-group { display: flex; flex-direction: column; gap: 8px; }
-.note-kind { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-.note-kind small { text-transform: none; letter-spacing: 0; font-size: 14px; margin-left: 10px; }
-.note { font-size: 19px; line-height: 1.45; display: flex; gap: 12px; align-items: baseline; }
-.note .q { font-family: var(--font-code); font-size: 13px; color: var(--muted); flex-shrink: 0; }
-.note .text { flex: 1; min-width: 0; }
-.note a { font-size: 14px; color: var(--accent); white-space: nowrap; text-decoration: none; }
-.note a:hover, .note a:focus-visible { text-decoration: underline; }
+.step-arrow { color: var(--muted); font-size: var(--fs-text); line-height: 1; padding-left: 7px; }
+
+/* Closing slide: the open questions as a list, each with a link to the slide that holds its tip */
+.notes { display: flex; flex-direction: column; gap: 12px; max-width: 1100px; margin: 0; padding-left: 1.6em; }
+.notes a { margin-left: 4px; font-size: var(--fs-small); color: var(--accent); white-space: nowrap; text-decoration: none; }
+.notes a:hover, .notes a:focus-visible { text-decoration: underline; }
+
+/* Code panes: before | after side by side, or one pane at full width */
 .sides { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; flex-shrink: 0; }
 .sides.single { grid-template-columns: 1fr; }
-.side { border-radius: 10px; padding: 16px 18px; min-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 14px; }
+.side { position: relative; border-radius: 10px; padding: 16px 18px; min-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 14px; }
 .side.before { background: var(--before-bg); }
 .side.after { background: var(--after-bg); }
 /* Context is supporting code: smaller and quieter than the changed code above it */
 .side.ctx { background: var(--ctx-bg); padding: 12px 16px; gap: 10px; }
-.side.ctx .chunk .lines, .side.ctx .chunk.recap .lines { font-size: 13.5px; opacity: .8; }
-.sides.only-ctx .side.ctx .chunk .lines { font-size: 15.5px; opacity: 1; }
-.side .label { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-.chunk .cap { font-size: 14px; color: var(--muted); margin-bottom: 4px; display: flex; gap: 8px; align-items: baseline; }
+.side.ctx .chunk .lines { font-size: var(--fs-small); opacity: .8; }
+.sides.only-ctx .side.ctx .chunk .lines { font-size: var(--fs-code); opacity: 1; }
+/* The code of a step, with the name of its method as the label */
+.side.step { background: var(--before-bg); padding: 12px 16px; gap: 6px; }
+/* Code pane tags: pills at the right end of the first row (the file path row) that take no height. The pill
+   is opaque, so a long first line runs under it instead of through it */
+.side:not(.step) > .label {
+  position: absolute; top: 15px; right: 18px; z-index: 1; padding: 2px 9px; border-radius: 999px;
+  font-weight: 600; line-height: 16px;
+}
+.side.before > .label { background: var(--before-tag); color: var(--before-tag-ink); }
+.side.after > .label { background: var(--after-tag); color: var(--after-tag-ink); }
+.side.ctx > .label { top: 11px; right: 16px; background: var(--ctx-tag); color: var(--ctx-tag-ink); }
+
+/* Chunks: a caption row (file path, caption, tag), then the lines */
+.side > .chunk.new-file { margin-top: 16px; }
+.chunk .cap { font-size: var(--fs-small); color: var(--muted); margin-bottom: 4px; display: flex; gap: 8px; align-items: baseline; }
+/* Small labels: file paths and step methods in code; pane tags and the recap tag in uppercase */
+.chunk .cap .file, .side.step > .label { font-family: var(--font-code); font-size: var(--fs-tiny); color: var(--muted); }
+.side:not(.step) > .label, .chunk .tag { font-size: var(--fs-tiny); letter-spacing: .08em; text-transform: uppercase; }
+.chunk .tag { color: var(--muted); }
+.chunk .lines { font-variant-ligatures: normal; font-family: var(--font-code); font-size: var(--fs-code); line-height: 1.5; }
 .chunk.recap .lines { opacity: .65; }
-.chunk .tag { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.chunk .lines { font-variant-ligatures: normal; font-family: var(--font-code); font-size: 15.5px; line-height: 1.5; }
 /* A long line wraps only where breakLines allows it, and its next rows are indented two levels deeper */
 .chunk .ln { white-space: pre-wrap; overflow-wrap: break-word; min-height: 1.55em; padding-left: 4ch; text-indent: -4ch; }
-.gap { color: var(--muted); opacity: .5; }
 .chunk .ln.blank { min-height: .8em; }
-.chunk .ln.del { background: rgba(207, 34, 46, .13); }
-.chunk .ln.add { background: rgba(26, 127, 55, .15); }
+.chunk .ln.del { background: var(--del-bg); }
+.chunk .ln.add { background: var(--add-bg); }
 /* The changed words of a partly changed line; a line that changed as a whole has only the line color */
-.chunk .ln.del .chg { background: rgba(207, 34, 46, .26); border-radius: 3px; }
-.chunk .ln.add .chg { background: rgba(26, 127, 55, .28); border-radius: 3px; }
-.chunk .cap .file { font-family: var(--font-code); font-size: 12.5px; color: var(--muted); }
+.chunk .ln .chg { border-radius: 3px; }
+.chunk .ln.del .chg { background: var(--del-chg); }
+.chunk .ln.add .chg { background: var(--add-chg); }
+/* A row left empty so that the two sides stay level */
 .chunk .ln.pad { background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(0, 0, 0, .04) 6px 7px); }
-.chunk .src { margin-left: 10px; color: var(--muted); opacity: .45; text-decoration: none; font-family: var(--font-ui); font-size: 13px; }
+/* Skipped code ("...") */
+.gap { color: var(--muted); opacity: .5; }
+/* The link to the line on GitHub */
+.chunk .src { margin-left: 10px; color: var(--muted); opacity: .45; text-decoration: none; font-family: var(--font-ui); font-size: var(--fs-small); }
 .chunk .src:hover, .chunk .src:focus-visible { opacity: 1; color: var(--accent); }
 
-.tip { text-decoration: underline dotted var(--accent); text-decoration-thickness: 2px; text-underline-offset: 4px; cursor: help; border-radius: 3px; }
+/* Syntax highlighting */
+.t-kw { color: var(--tok-kw); }
+.t-ty { color: var(--tok-type); }
+.t-st { color: var(--tok-str); }
+.t-co { color: var(--tok-com); font-style: italic; }
+.t-an { color: var(--tok-ann); }
+
+/* Tips: a dotted underline on the code, and a dark tooltip on hover */
+.tip { text-decoration: underline dotted var(--accent); text-decoration-thickness: 2px; text-underline-offset: 4px; border-radius: 3px; }
 .tip:hover, .tip:focus-visible, .tip.open { background: var(--tip-bg); outline: none; }
+/* Review notes (open questions): a wavy underline on the code, red for a suspected bug and orange for the
+   other kinds, and a tooltip in the same color */
+.tip.flag { text-decoration: underline wavy var(--flag-line); text-decoration-thickness: 1.5px; }
+.tip.flag:hover, .tip.flag:focus-visible, .tip.flag.open { background: var(--flag-bg); }
+.flag.bug, #tooltip.flagged.bug { --flag-line: var(--bug-line); --flag-bg: var(--bug-bg); --flag-ink: var(--bug-ink); }
+.flag.open-q, #tooltip.flagged.open-q { --flag-line: var(--note-line); --flag-bg: var(--note-bg); --flag-ink: var(--note-ink); }
 #tooltip {
   position: fixed; z-index: 50; max-width: min(360px, calc(100vw - 32px)); pointer-events: none;
-  background: var(--fg); color: var(--bg); font: 15px/1.45 var(--font-ui); padding: 8px 12px; border-radius: 8px;
+  background: var(--fg); color: var(--bg); font: var(--fs-small)/1.45 var(--font-ui); padding: 8px 12px; border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, .12), 0 10px 28px rgba(0, 0, 0, .28); --flag-line: var(--fg); --flag-bg: var(--fg);
 }
-/* Review notes (open questions): a wavy underline on the code, red for a suspected bug and orange for the
-   other kinds, and a tooltip in the same color. Every tooltip has an arrow that points at its code */
-.tip.flag { text-decoration: underline wavy var(--flag-line); text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
-.tip.flag:hover, .tip.flag:focus-visible, .tip.flag.open { background: var(--flag-bg); }
-.flag.bug { --flag-line: var(--bug-line); --flag-bg: var(--bug-bg); }
-.flag.open-q { --flag-line: var(--note-line); --flag-bg: var(--note-bg); }
+#tooltip code { font-family: var(--font-code); font-size: .88em; white-space: nowrap; }
 #tooltip.flagged { color: var(--fg); background: var(--flag-bg); border: 1px solid var(--flag-line); }
-#tooltip.flagged b { font-weight: 600; color: var(--flag-ink); }
-#tooltip.flagged.bug { --flag-line: var(--bug-line); --flag-bg: var(--bug-bg); --flag-ink: var(--bug-ink); }
-#tooltip.flagged.open-q { --flag-line: var(--note-line); --flag-bg: var(--note-bg); --flag-ink: var(--note-ink); }
+#tooltip.flagged b { color: var(--flag-ink); }
+/* Every tooltip has an arrow that points at its code: above it, or below it with .up */
 #tooltip::before, #tooltip::after { content: ""; position: absolute; left: var(--arrow-x, 18px); border: 7px solid transparent; transform: translateX(-50%); }
 #tooltip::before { bottom: 100%; border-bottom-color: var(--flag-line); }
 #tooltip::after { bottom: calc(100% - 1.5px); border-bottom-color: var(--flag-bg); }
 #tooltip.up::before { bottom: auto; top: 100%; border-bottom-color: transparent; border-top-color: var(--flag-line); }
 #tooltip.up::after { bottom: auto; top: calc(100% - 1.5px); border-bottom-color: transparent; border-top-color: var(--flag-bg); }
-.lead code, #tooltip code { font-family: var(--font-code); font-size: .88em; white-space: nowrap; }
-.lead code { color: var(--fg); }
-.t-kw { color: var(--tok-kw); } .t-ty { color: var(--tok-type); } .t-st { color: var(--tok-str); }
-.t-co { color: var(--tok-com); font-style: italic; } .t-an { color: var(--tok-ann); }
 </style>
 
 <main id="slides"></main>
@@ -314,9 +371,11 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
       var la = withMemberGaps(textLines(a.code)), lb = withMemberGaps(textLines(b.code)), d = diffRows(la, lb);
       if (!d.similar) break;
       var cap = !!(a.caption || b.caption || a.recap || b.recap || a.showFile || b.showFile);
+      // A new file on either side spaces both sides, so the rows stay level
+      var newFile = k > 0 && !!(a.showFile || b.showFile);
       // Blank lines and "..." gaps inside a changed block stay unmarked, so the marks show only real code
-      plans.before.push({ cap: cap, rows: d.rows.map(function (r) { return { line: r.l, mark: !faded && r.changed && r.l != null && isCode(la[r.l]) ? 'del' : '' }; }) });
-      plans.after.push({ cap: cap, rows: d.rows.map(function (r) { return { line: r.r, mark: !faded && r.changed && r.r != null && isCode(lb[r.r]) ? 'add' : '' }; }) });
+      plans.before.push({ cap: cap, newFile: newFile, rows: d.rows.map(function (r) { return { line: r.l, mark: !faded && r.changed && r.l != null && isCode(la[r.l]) ? 'del' : '' }; }) });
+      plans.after.push({ cap: cap, newFile: newFile, rows: d.rows.map(function (r) { return { line: r.r, mark: !faded && r.changed && r.r != null && isCode(lb[r.r]) ? 'add' : '' }; }) });
     }
     return plans;
   }
@@ -451,6 +510,7 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
   // into a neutral pane of its own below the changed code, so it is never boxed inside a colored pane;
   // so does code repeated from an earlier slide (recap), which supports the change rather than being it.
   // marks: the word marks of the pane's lines (from wordMarks), or null to use the row marks of plans
+  // label: the heading of a step pane (the method of the step), or the corner tag of a code pane
   function sideEl(cls, label, chunks, tips, plans, marks) {
     if (!chunks.length) return {};
     var raw = Object.keys(tips || {}), base = tipTexts.length;
@@ -465,10 +525,12 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
         if (!ctx) { ctx = el('div', 'side ctx ' + cls); ctx.appendChild(el('div', 'label', 'Context')); }
         side = ctx;
       } else {
-        if (!main) { main = el('div', 'side ' + cls); main.appendChild(el('div', 'label', label)); }
+        if (!main) { main = el('div', 'side ' + cls); if (label != null) main.appendChild(el('div', 'label', label)); }
         side = main;
       }
-      var node = el('div', 'chunk' + (c.recap ? ' recap' : ''));
+      // A chunk that starts another file below an earlier chunk gets more space above it
+      var newFile = (plan ? plan.newFile : c.showFile) && !!side.querySelector('.chunk');
+      var node = el('div', 'chunk' + (c.recap ? ' recap' : '') + (newFile ? ' new-file' : ''));
       if (c.caption || c.recap || c.showFile || (plan && plan.cap)) {
         var cap = el('div', 'cap', c.caption || (c.showFile ? null : '\u00a0'));
         if (c.showFile) { var f = el('span', 'file', c.file); f.title = c.file; cap.insertBefore(f, cap.firstChild); }
@@ -520,7 +582,7 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
   var titleSec = el('section', 'slide'), title = el('div', 'title-slide'), meta = el('div', 'meta');
   meta.innerHTML = esc(pr.repo) + ' <a href="' + esc(pr.url) + '" target="_blank" rel="noopener">#' + pr.number + '</a>';
   title.appendChild(meta);
-  title.appendChild(el('h1', null, pr.title));
+  var h1 = el('h1'); h1.innerHTML = prose(pr.title); title.appendChild(h1);
   if (data.summary) { var sum = el('p', 'lead'); sum.innerHTML = prose(data.summary); title.appendChild(sum); }
   titleSec.appendChild(title);
   deck.appendChild(titleSec);
@@ -528,8 +590,8 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
   function panes(s) {
     var out = {};
     ['before', 'after'].forEach(function (side) {
-      var cap = side === 'before' ? 'Before' : 'After', one = side === 'before' ? 'beforeTips' : 'afterTips';
-      out[side] = { chunks: chunkList(s[side]), tips: Object.assign({}, s.tips, s[one]), label: s[side + 'Label'] || cap };
+      var one = side === 'before' ? 'beforeTips' : 'afterTips';
+      out[side] = { chunks: chunkList(s[side]), tips: Object.assign({}, s.tips, s[one]) };
       // Step code is old code, so it takes the tips of the Before side
       if (side === 'before' && s.steps) out[side].tips = Object.assign({}, s.tips, s.beforeTips);
     });
@@ -555,7 +617,7 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
     var sec = el('section', 'slide'), body = el('div', 'concept');
     sec.appendChild(body);
     var head = el('div', 'head');
-    head.appendChild(el('h2', null, s.title));
+    var h2 = el('h2'); h2.innerHTML = prose(s.title); head.appendChild(h2);
     body.appendChild(head);
     var text = s.text;
     if (text) { var lead = el('p', 'lead'); lead.innerHTML = prose(text); body.appendChild(lead); }
@@ -574,8 +636,8 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
     [bc, ac, ctx].forEach(markFiles);
     var plans = alignPanes(bc, ac, s.align !== false);
     var marks = bc.length && ac.length && s.align !== false ? wordMarks(paneLines(bc), paneLines(ac)) : null;
-    var cols = [sideEl('before', p.before.label, bc, p.before.tips, plans.before, marks && marks.before).main,
-                sideEl('after', p.after.label, ac, p.after.tips, plans.after, marks && marks.after).main]
+    var cols = [sideEl('before', 'Before', bc, p.before.tips, plans.before, marks && marks.before).main,
+                sideEl('after', 'After', ac, p.after.tips, plans.after, marks && marks.after).main]
       .filter(Boolean);
     // The context pane takes the tips that have no place in the changed code
     var mainLines = paneLines(bc).concat(paneLines(ac)), ctxTips = {};
@@ -593,38 +655,30 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
   }
   slides.forEach(function (s) { deck.appendChild(conceptSection(s, panes(s))); });
 
-  // Closing slide: the open questions by kind. Each one links to the first slide that holds its tip.
-  var KINDS = [
-    ['Suspected bug', 'the code does something wrong in a case found by reading it, not by running it'],
-    ['Unexplained', 'a change, value or check without a reason in the code, the issues or the history']
-  ];
+  // Closing slide: the open questions as one list, suspected bugs first. Each one names its kind and links to
+  // the first slide that holds its tip.
+  var KINDS = ['Suspected bug', 'Unexplained'];
   var open = data.open || [];
   if (open.length) {
     var nsec = el('section', 'slide'), nbody = el('div', 'concept'), nhead = el('div', 'head');
     nhead.appendChild(el('h2', null, 'Review notes'));
     nbody.appendChild(nhead);
-    nbody.appendChild(el('p', 'lead', 'Places where the code looks wrong or nothing tells why. Each one can show a problem in the PR; the author can settle it.'));
-    var notes = el('div', 'notes');
+    var notes = el('ol', 'notes');
     KINDS.forEach(function (kind) {
-      var items = open.filter(function (o) { return o.kind === kind[0]; });
-      if (!items.length) return;
-      var group = el('div', 'note-group'), label = el('div', 'note-kind', kind[0]);
-      label.appendChild(el('small', null, kind[1]));
-      group.appendChild(label);
-      items.forEach(function (o) {
-        var row = el('div', 'note'), t = el('span', 'text');
-        row.appendChild(el('span', 'q', (o.questions || []).join(', ')));
-        t.innerHTML = prose(o.text);
-        row.appendChild(t);
+      open.filter(function (o) { return o.kind === kind; }).forEach(function (o) {
+        var li = el('li');
+        li.innerHTML = '<b>' + esc(kind) + ':</b> ' + prose(o.text);
         if (o.slide && slides[o.slide - 1]) {
-          var a = el('a', null, slides[o.slide - 1].title + ' \u2197');
+          var a = el('a');
+          a.innerHTML = prose(slides[o.slide - 1].title) + ' \u2197';
           a.href = '#';
           a.addEventListener('click', function (e) { e.preventDefault(); shower.goTo(o.slide); });
-          row.appendChild(a);
+          // A space before the link, so the link wraps to the next line alone, not with the last word
+          li.appendChild(document.createTextNode(' '));
+          li.appendChild(a);
         }
-        group.appendChild(row);
+        notes.appendChild(li);
       });
-      notes.appendChild(group);
     });
     nbody.appendChild(notes);
     nsec.appendChild(nbody);
@@ -663,14 +717,15 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
     if (t && !same) { openTip = t; t.classList.add('open'); showTip(t); }
   });
 
-  // Long slides: shrink the code font in small steps until the slide fits its 810px canvas (not below 13px)
+  // Long slides: shrink the code font and the review notes in 2px steps until the slide fits its 810px canvas
+  // (code not below 12px, notes not below 14px)
   function fitSlides() {
     document.querySelectorAll('.concept').forEach(function (body) {
-      var size = 15.5, note = 19;
+      var size = 16, note = 20; // --fs-code and --fs-text
       syncRows(body);
-      while (body.scrollHeight > body.clientHeight + 1 && (size > 13 || note > 14)) {
-        if (size > 13) { size -= 0.5; body.querySelectorAll('.chunk .lines').forEach(function (l) { l.style.fontSize = size + 'px'; }); }
-        if (note > 14) { note -= 0.5; body.querySelectorAll('.note').forEach(function (n) { n.style.fontSize = note + 'px'; }); }
+      while (body.scrollHeight > body.clientHeight + 1 && (size > 12 || note > 14)) {
+        if (size > 12) { size -= 2; body.querySelectorAll('.chunk .lines').forEach(function (l) { l.style.fontSize = size + 'px'; }); }
+        if (note > 14) { note -= 2; body.querySelectorAll('.notes').forEach(function (n) { n.style.fontSize = note + 'px'; }); }
         syncRows(body);
       }
     });

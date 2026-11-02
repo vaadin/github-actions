@@ -14,8 +14,7 @@
       "title": "One item in the field",
       "text": "One sentence.",
       "introduces": ["valueButton", "idea: placeholder item"],
-      "after": [{"code": "...", "file": "packages/x/src/x.js", "context": true}],
-      "afterLabel": "Context"
+      "after": [{"code": "...", "file": "packages/x/src/x.js", "context": true}]
     },
     {
       "title": "aria-selected comes back",
@@ -51,14 +50,14 @@
 - `introduces` lists the new things of the slide. A name must be in the code of the slide as a full name. A concept without a name is `"idea: ..."`.
 - A slide has `before` and `after` panes, or `steps`.
 - If a pane is empty, the page does not show it. The other pane gets the full width.
-- `beforeLabel` and `afterLabel` replace the labels "Before" and "After".
+- The before pane is red, the after pane green and the context pane gray. Each has a small tag "Before", "After" or "Context" in its top-right corner.
 - The page aligns chunk N of `before` with chunk N of `after`, line by line, and marks removed and added lines, while the pairs are the same type and share enough lines. Inside a changed line, the page also marks the changed words. `"align": false` stops this.
 
 ## Panes and chunks
 
 - A pane is a string or a list of chunks. A chunk is a string or `{"code", "file", "caption", "context"}`.
 - `file` is the path of the chunk's file in the repo, such as `packages/date-picker/src/vaadin-month-calendar.js`. The page shows it above the chunk.
-- `"context": true` marks unchanged code. The page shows the context of both sides in one gray pane below the changed code, across the two columns, with the label "Context". The same code is shown one time. A side with only context gets no column: the changed code of the other side takes the full width. A slide with only context shows it at the normal size.
+- `"context": true` marks unchanged code. The page shows the context of both sides in one gray pane below the changed code, across the two columns. The same code is shown one time. A side with only context gets no column: the changed code of the other side takes the full width. A slide with only context shows it at the normal size.
 - `caption` is a short heading above a chunk.
 - `...` marks skipped code: a line of its own, or in place of arguments.
 - A line too long for its pane wraps after `(`, `,`, `.`, `[` or `{`, or at a space, never inside a name, and its next rows are indented two levels deeper.
