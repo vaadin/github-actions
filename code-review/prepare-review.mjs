@@ -11,7 +11,7 @@
  *   RUNNER_TEMP          base dir for generated files
  *   GITHUB_REPOSITORY    owner/repo, for the compare API
  *   GITHUB_WORKSPACE     PR head checkout (the review's working tree)
- *   GH_TOKEN             token for the gh CLI
+ *   GH_TOKEN             token for the gh CLI and the merge-base fetch
  *
  * Produces under $RUNNER_TEMP/pr-review:
  *   pr.diff, pr-files.txt, pr-meta.json, base/ (merge-base worktree),
@@ -213,7 +213,14 @@ function main() {
   const baseRefSha = capture('gh', ['pr', 'view', prNumber, '--json', 'baseRefOid', '--jq', '.baseRefOid']).trim();
   const baseSha = capture('gh', ['api', `repos/${repo}/compare/${baseRefSha}...${headSha}`, '--jq', '.merge_base_commit.sha']).trim();
 
-  execFileSync('git', ['fetch', '--depth=1', 'origin', baseSha], { stdio: 'inherit' });
+  // The checkout keeps no credentials, so authenticate this one fetch with
+  // GH_TOKEN through gh's credential helper; a private repository can't be
+  // fetched anonymously.
+  execFileSync('git', [
+    '-c', 'credential.helper=',
+    '-c', 'credential.helper=!gh auth git-credential',
+    'fetch', '--depth=1', 'origin', baseSha,
+  ], { stdio: 'inherit' });
   execFileSync('git', ['worktree', 'add', basePath, baseSha], { stdio: 'inherit' });
 
   // Existing reviews, only when there are any.
