@@ -1,4 +1,4 @@
-// Run with: node --test code-review/
+// Run with: node --test code-review/run-review.test.mjs
 import test from 'node:test';
 import assert from 'node:assert';
 import { spawnSync } from 'node:child_process';
