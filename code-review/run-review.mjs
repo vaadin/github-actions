@@ -32,6 +32,8 @@
  *                        lib/claude-prepare.mjs (carries additionalDirectories)
  *   EXTRA_ALLOWED_TOOLS  optional repository-specific --allowedTools additions,
  *                        comma- or newline-separated
+ *   PROFILE              review profile, a key of PROFILE_PROMPTS; default
+ *                        'code'
  *
  * Produces under $RUNNER_TEMP/review-output:
  *   transcript.jsonl     the session's stream-json transcript (execution log)
@@ -90,6 +92,15 @@ const ALLOWED_BASH_COMMANDS = [
 ];
 
 const TIER_RANK = { high: 3, medium: 2, low: 1 };
+
+// The review prompt of each profile, under prompts/. The prompts ship with
+// the action and are never read from the reviewed checkout, so a pull request
+// cannot rewrite the instructions that review it. Every profile shares the
+// tool instructions, the findings schema and the value tiers.
+const PROFILE_PROMPTS = {
+  code: 'review.md',
+  docs: 'review-docs.md',
+};
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -237,6 +248,13 @@ function summaryMarkdown(emitted, withheld) {
 async function main() {
   const runnerTemp = requireEnv('RUNNER_TEMP');
   const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+  const profile = process.env.PROFILE || 'code';
+  if (!Object.hasOwn(PROFILE_PROMPTS, profile)) {
+    fail(
+      `Unknown review profile "${profile}". ` +
+        `Expected one of: ${Object.keys(PROFILE_PROMPTS).join(', ')}.`
+    );
+  }
 
   const reviewInputsPath = path.join(runnerTemp, 'pr-review', 'review-inputs.md');
   if (!fs.existsSync(reviewInputsPath)) {
@@ -251,7 +269,7 @@ async function main() {
   const summaryPath = path.join(outDir, 'findings-summary.md');
 
   const prompt = fs
-    .readFileSync(path.join(HERE, 'prompts', 'review.md'), 'utf8')
+    .readFileSync(path.join(HERE, 'prompts', PROFILE_PROMPTS[profile]), 'utf8')
     .replaceAll('{{REVIEW_INPUTS}}', reviewInputs);
   const toolInstructions = fs
     .readFileSync(path.join(HERE, 'prompts', '_tools.md'), 'utf8')

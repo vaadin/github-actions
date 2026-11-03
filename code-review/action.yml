@@ -20,6 +20,13 @@ inputs:
       triggering event (e.g. github.event.issue.number ||
       github.event.pull_request.number).
     required: true
+  profile:
+    description: >-
+      Review profile, which selects the review prompt that ships with this
+      action. 'code' reviews framework and library code. 'docs' reviews
+      documentation pages and their code examples.
+    required: false
+    default: 'code'
   github-token:
     description: >-
       Token used to prepare the review inputs and post the review; its
@@ -92,6 +99,7 @@ runs:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         SETTINGS: ${{ steps.prepare.outputs.settings }}
         EXTRA_ALLOWED_TOOLS: ${{ inputs.extra-allowed-tools }}
+        PROFILE: ${{ inputs.profile }}
       run: node "$GITHUB_ACTION_PATH/run-review.mjs"
 
     - name: Post review
