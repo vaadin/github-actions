@@ -63,8 +63,8 @@ Deliberately hard-coded, each a one-line edit:
 The calling workflow must, before invoking this action:
 
 - **Check out the PR head** (`refs/pull/<number>/head`) — it is the review's
-  working tree. Credential persistence must stay enabled (the default) so the
-  prepare step can fetch the merge-base commit.
+  working tree. The prepare step fetches the merge-base commit with the
+  `github-token` input, so the checkout can set `persist-credentials: false`.
 - **Set up Node** (≥ 20; preinstalled on GitHub runners, but callers typically
   pin a version).
 
@@ -155,6 +155,8 @@ jobs:
         with:
           ref: refs/pull/${{ env.PR_NUMBER }}/head
           fetch-depth: 1
+          # The action authenticates with its `github-token` input.
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v6
