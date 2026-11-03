@@ -74,11 +74,17 @@ function normalize(finding) {
 // Every finding starts with a category emoji on the title and ends in the
 // same meta line: file link, category.
 
+// The categories of every profile: code, then docs. A profile reuses a
+// category, such as conventions, when it means the same thing.
 const CATEGORY_EMOJI = {
   correctness: '⚠️',
   documentation: '📝',
   tests: '🧪',
   conventions: '📐',
+  accuracy: '⚠️',
+  clarity: '💬',
+  examples: '🧩',
+  placement: '🗂️',
 };
 
 function categoryEmoji(finding) {

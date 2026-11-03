@@ -10,7 +10,7 @@ posts the findings as a single PR review:
    state), and the PR's existing reviews, all named by absolute path in an
    inputs file that is inlined into the review prompt.
 2. **Review** — one read-only Claude Code session reviews the changes against
-   four areas (correctness, documentation, tests, conventions), writes a
+   the focus areas of the selected [profile](#profiles), writes a
    free-text judgement per finding, grades each finding's `value`
    (`high` / `medium` / `low`), and reports once as structured output.
 3. **Select & post** — selection is mechanical: findings at or above the
@@ -32,6 +32,20 @@ read-only Bash command allowlist that is also advertised to the agent.
 
 Shared scripts in [`lib/`](../lib/) provide optional read-only reference
 repository checkouts, instruction injection, and the session job summary.
+
+## Profiles
+
+The `profile` input selects the review prompt. The profiles share the tools,
+the findings schema, the value tiers and the posting.
+
+| Profile | Prompt | Reviews | Categories |
+|---|---|---|---|
+| `code` (default) | [prompts/review.md](prompts/review.md) | Framework and library code | `correctness`, `documentation`, `tests`, `conventions` |
+| `docs` | [prompts/review-docs.md](prompts/review-docs.md) | Documentation pages and their code examples | `accuracy`, `clarity`, `examples`, `placement`, `conventions` |
+
+The prompts ship with the action. A caller cannot pass a prompt file, so a
+pull request cannot change the prompt that reviews it. Pass
+repository-specific context with `extra-instructions`.
 
 ## Tuning
 
@@ -63,6 +77,7 @@ The job needs `pull-requests: write` (post the review) and `issues: write`
 |---|---|---|---|
 | `anthropic-api-key` | yes | | Anthropic API key (pass `secrets.ANTHROPIC_API_KEY`). |
 | `pr-number` | yes | | Number of the pull request to review. |
+| `profile` | no | `code` | Review profile: `code` or `docs`. See [Profiles](#profiles). |
 | `github-token` | no | `github.token` | Token used to prepare the review inputs (including fetching the merge-base commit, so it needs read access to private repositories) and post the review; its identity is the review author. Pass a bot token to post under a bot identity. |
 | `reference-repos` | no | `''` | Upstream repositories to clone as read-only context, one `owner/repo \| description` per line. |
 | `extra-instructions` | no | `''` | Repository-specific review instructions, injected as project instructions. |
