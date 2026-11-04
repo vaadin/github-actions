@@ -11,10 +11,13 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.join(HERE, 'run-review.mjs');
 const INPUTS = '- **Diff**: `/tmp/pr-review/pr.diff`';
 
+const RISK = { level: 'medium', reason: 'Changes shared code.' };
+
 // Runs run-review.mjs against a stub `claude` that records its arguments and
-// the prompt it receives on stdin, and reports no findings. `extraEnv` adds
+// the prompt it receives on stdin, and reports `output` as the structured
+// output (by default no findings and the risk above). `extraEnv` adds
 // environment variables.
-function runReview(profile, extraEnv = {}) {
+function runReview(profile, extraEnv = {}, output = { findings: [], risk: RISK }) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-review-'));
   fs.mkdirSync(path.join(dir, 'pr-review'));
   fs.writeFileSync(path.join(dir, 'pr-review', 'review-inputs.md'), INPUTS);
@@ -22,10 +25,15 @@ function runReview(profile, extraEnv = {}) {
   fs.mkdirSync(bin);
   const promptFile = path.join(dir, 'prompt.md');
   const argsFile = path.join(dir, 'args');
+  const resultFile = path.join(dir, 'result.json');
+  fs.writeFileSync(
+    resultFile,
+    JSON.stringify({ type: 'result', structured_output: output }) + '\n'
+  );
   fs.writeFileSync(
     path.join(bin, 'claude'),
     `#!/bin/sh\nprintf '%s\\0' "$@" > '${argsFile}'\ncat > '${promptFile}'\n` +
-      `echo '{"type":"result","structured_output":{"findings":[]}}'\n`,
+      `cat '${resultFile}'\n`,
     { mode: 0o755 }
   );
   const env = {
@@ -41,12 +49,14 @@ function runReview(profile, extraEnv = {}) {
   if (!('INSTRUCTIONS_FILE' in extraEnv)) delete env.INSTRUCTIONS_FILE;
   if (profile !== undefined) env.PROFILE = profile;
   const result = spawnSync(process.execPath, [SCRIPT], { env, encoding: 'utf8' });
-  const prompt = fs.existsSync(promptFile) ? fs.readFileSync(promptFile, 'utf8') : null;
-  const args = fs.existsSync(argsFile)
-    ? fs.readFileSync(argsFile, 'utf8').split('\0').slice(0, -1)
-    : null;
+  const read = (file) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null);
+  const prompt = read(promptFile);
+  const args = read(argsFile)?.split('\0').slice(0, -1) ?? null;
+  const schema = args && JSON.parse(argValue(args, '--json-schema'));
+  const findingsFile = read(path.join(dir, 'review-output', 'findings.json'));
+  const findings = findingsFile && JSON.parse(findingsFile);
   fs.rmSync(dir, { recursive: true, force: true });
-  return { ...result, prompt, args };
+  return { ...result, prompt, args, schema, findings };
 }
 
 // The value of a `--flag value` pair in the recorded arguments, or undefined.
@@ -114,4 +124,28 @@ test('appends the generated instructions after the tool instructions', () => {
       `${toolInstructions}\n\n${instructions}`
     );
   }
+});
+
+test('requires and passes on the risk assessment in the code profile', () => {
+  const { status, stderr, schema, findings } = runReview('code');
+  assert.strictEqual(status, 0, stderr);
+  assert.ok(schema.required.includes('risk'));
+  assert.deepStrictEqual(schema.properties.risk.properties.level.enum, ['low', 'medium', 'high']);
+  assert.deepStrictEqual(findings, { findings: [], risk: RISK });
+});
+
+test('fails when the code profile reports no valid risk', () => {
+  for (const risk of [undefined, { level: 'critical', reason: '' }]) {
+    const { status, stderr } = runReview('code', {}, { findings: [], risk });
+    assert.strictEqual(status, 1);
+    assert.match(stderr, /no valid risk assessment/);
+  }
+});
+
+test('does not assess risk in the docs profile', () => {
+  const { status, stderr, schema, findings } = runReview('docs', {}, { findings: [] });
+  assert.strictEqual(status, 0, stderr);
+  assert.ok(!('risk' in schema.properties));
+  assert.ok(!schema.required.includes('risk'));
+  assert.deepStrictEqual(findings, { findings: [] });
 });
