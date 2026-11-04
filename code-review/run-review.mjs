@@ -79,17 +79,20 @@ const TOOLS = 'Read,Grep,Glob,Bash';
 // The Bash commands advertised to the agent in prompts/_tools.md. The action
 // passes no Bash allow rule: Claude Code approves a read-only command on its
 // own and checks its flags and paths, so it refuses `sed -i`, `sort -o`,
-// `git log --output`, `git diff --ext-diff`, `rg --pre`, `find -delete`, output
-// redirection and reads outside the working directories. A `Bash(<command>:*)` prefix rule would admit every
-// flag of its command, including the ones that write a file.
+// `git diff --output`, `git diff --ext-diff`, `rg --pre`, `find -delete`,
+// output redirection and reads outside the working directories. A
+// `Bash(<command>:*)` prefix rule would admit every flag of its command,
+// including the ones that write a file.
 //
 // Every command below runs without an allow rule on the Claude Code version
 // pinned in action.yml (`uniq` only at the end of a pipe: with a file
 // argument it needs approval). Check the list again when that version changes.
+// `git log` and `git blame` run too but are left out: the checkout is shallow,
+// so they would show one commit and blame every line on it.
 const BASH_COMMANDS = [
   'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'rg', 'find',
   'sed -n', 'sort', 'uniq', 'cut', 'tr', 'comm', 'diff', 'basename',
-  'git diff', 'git log', 'git show', 'git blame', 'git grep', 'git status',
+  'git diff', 'git show', 'git grep', 'git status',
 ];
 
 const TIER_RANK = { high: 3, medium: 2, low: 1 };
