@@ -42,7 +42,7 @@ Check for:
 - **Broken references**: a cross reference, include or link whose target page, anchor, file or snippet tag does not exist.
 - **Instructions**: a required step, a "must" or a "write your own" that the source shows is unnecessary, or a condition that the source shows is wrong.
 
-Every accuracy finding must quote the statement and name the source that contradicts it. Give the file path and line of that source.
+Every accuracy finding must quote the statement and name the source, or the page, that contradicts it. Give the file path and line.
 
 The reference checkouts may not hold the source of a product or a third-party library. Then you cannot verify its claims. Report such a claim only when the page contradicts itself or another page. Before a claim that depends on a version, read the version pins of this repository, such as `pom.xml` or `package.json`.
 
@@ -59,7 +59,7 @@ Check for:
 - **Prose and example disagree**: the text describes one thing, and the example shows another.
 - **Buried point**: nested parentheticals, chained cross references or stacked qualifications hide the instruction or the fact that the reader needs.
 - **Off-topic content**: a section that does not answer the question in its heading. Also content for the reviewer of the change, such as how the product changed.
-- **Lost information**: the change removes a fact, a step or an example that a reader needs, and the link that replaces it does not hold it. Compare the removed lines with the link target, when the target is in this repository.
+- **Lost information**: the change removes a fact, a step or an example that a reader needs, and neither the page nor a link that replaces it holds it. Compare the removed lines with the link target, when the target is in this repository.
 
 Every clarity finding must quote the passage. Name the concrete misreading, or the place where the reader gets stuck. "Could be clearer" is not a finding.
 
