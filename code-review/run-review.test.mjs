@@ -91,7 +91,13 @@ test('passes no Bash allow rule and advertises the read-only commands', () => {
   assert.strictEqual(argValue(args, '--tools'), 'Read,Grep,Glob,Bash');
   const toolInstructions = argValue(args, '--append-system-prompt');
   assert.ok(!toolInstructions.includes('{{BASH_COMMANDS}}'));
-  assert.match(toolInstructions, /\n {4}ls, cat, .*sed -n.*\n/);
+  const commands = toolInstructions.match(/\n {4}(ls, cat, .*)\n/)[1].split(', ');
+  assert.ok(commands.includes('sed -n'), commands.join(', '));
+  // Left out on purpose: the prompts forbid computing a diff, the checkout is
+  // shallow, and these need approval or write files.
+  for (const excluded of ['git diff', 'git log', 'git blame', 'awk', 'sed']) {
+    assert.ok(!commands.includes(excluded), `${excluded} is advertised`);
+  }
 });
 
 test('passes only the extra allowed tools of the caller', () => {
