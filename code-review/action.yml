@@ -6,14 +6,27 @@ description: >-
   reviews the changes
   and grades each finding into a value tier, mechanical selection decides
   which findings ship, and a posting step publishes them as inline review
-  threads with a summary.
+  threads with a summary. In the dismiss-stale-approval mode, it instead
+  dismisses its automatic approvals made on an earlier commit of the pull
+  request.
 
 inputs:
+  mode:
+    description: >-
+      'review' reviews the pull request. 'dismiss-stale-approval' dismisses
+      the approvals of the github-token identity made on a commit other than
+      the pull request head, so that an automatic approval does not outlive
+      the commit it reviewed; run it on the synchronize event, with the same
+      github-token as the review. It needs no checkout and no other input
+      than pr-number.
+    required: false
+    default: 'review'
   anthropic-api-key:
     description: >-
       Anthropic API key. Pass the repository secret, e.g.
-      secrets.ANTHROPIC_API_KEY.
-    required: true
+      secrets.ANTHROPIC_API_KEY. Required in the review mode.
+    required: false
+    default: ''
   pr-number:
     description: >-
       Number of the pull request to review, computed by the caller from the
@@ -56,7 +69,9 @@ inputs:
       Set to 'true' to approve the pull request when the review has no
       findings, its risk is at or below auto-approve-max-risk, and its title
       has one of the auto-approve-types. Needs a profile that rates risk
-      ('code'), and a github-token that may approve pull requests.
+      ('code'), and a github-token that may approve pull requests. Pair with
+      the dismiss-stale-approval mode on the synchronize event, which
+      dismisses the approval when new commits are pushed.
     required: false
     default: 'false'
   auto-approve-max-risk:
@@ -86,7 +101,35 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Check inputs
+      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        HAS_API_KEY: ${{ inputs.anthropic-api-key != '' }}
+      run: |
+        case "$MODE" in
+          review)
+            if [ "$HAS_API_KEY" != "true" ]; then
+              echo "::error::anthropic-api-key is required in the review mode"
+              exit 1
+            fi
+            ;;
+          dismiss-stale-approval) ;;
+          *)
+            echo "::error::Unknown mode \"$MODE\". Expected review or dismiss-stale-approval."
+            exit 1
+            ;;
+        esac
+
+    - name: Dismiss stale approvals
+      if: inputs.mode == 'dismiss-stale-approval'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: node "$GITHUB_ACTION_PATH/dismiss-stale-approval.mjs" "${{ inputs.pr-number }}"
+
     - name: Prepare review scope
+      if: inputs.mode == 'review'
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token }}
@@ -94,6 +137,7 @@ runs:
 
     - name: Prepare Claude run
       id: prepare
+      if: inputs.mode == 'review'
       shell: bash
       env:
         REFERENCE_REPOS: ${{ inputs.reference-repos }}
@@ -103,11 +147,13 @@ runs:
       run: node "$GITHUB_ACTION_PATH/../lib/claude-prepare.mjs"
 
     - name: Install Claude Code
+      if: inputs.mode == 'review'
       shell: bash
       run: npm install -g --allow-scripts=@anthropic-ai/claude-code @anthropic-ai/claude-code@2.1.318
 
     - name: Run Claude Code review
       id: review
+      if: inputs.mode == 'review'
       shell: bash
       env:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
@@ -117,6 +163,7 @@ runs:
       run: node "$GITHUB_ACTION_PATH/run-review.mjs"
 
     - name: Post review
+      if: inputs.mode == 'review'
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token }}
@@ -132,7 +179,7 @@ runs:
       run: node "$GITHUB_ACTION_PATH/../lib/claude-summary.mjs" "${{ steps.review.outputs.execution-file }}"
 
     - name: Upload findings summary
-      if: always()
+      if: always() && inputs.mode == 'review'
       uses: actions/upload-artifact@v4
       with:
         name: code-review-findings-pr${{ inputs.pr-number }}-${{ github.run_id }}-${{ github.run_attempt }}
