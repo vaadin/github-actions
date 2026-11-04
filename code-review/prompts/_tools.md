@@ -14,7 +14,8 @@ range of lines, use `Read` with an offset and a limit.
     {{BASH_COMMANDS}}
 
 A command or flag that writes a file is refused, for example `sed -i`,
-`sort -o` or `--output`. `awk` is refused.
+`sort -o` or `--output`. `awk` is refused, and so is `uniq` with a file
+argument: pipe into `uniq` instead.
 
 Each call must be a single plain command. Pipes and globs are fine, but shell
 programming is rejected before it runs, so a `for` loop over a file list will
