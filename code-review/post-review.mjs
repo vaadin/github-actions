@@ -21,7 +21,13 @@
  * commenting, when the risk is at or below AUTO_APPROVE_MAX_RISK, the title
  * has one of AUTO_APPROVE_TYPES, and the PR head is still the reviewed commit.
  * When GitHub refuses the approval (the token may not approve, or it belongs
- * to the PR author), the review posts as a comment instead.
+ * to the PR author), the review posts as a comment instead. An approval holds
+ * only while the latest review approves the head it reviewed: after posting,
+ * the run dismisses the approvals on commits other than the head, its own
+ * included when the head moved while it approved, and the one on the head
+ * when that is the commit it reviewed and did not approve. The action's
+ * dismiss-stale-approval mode dismisses them on every push. Only the
+ * approvals of the GH_TOKEN identity are dismissed, so human ones stay.
  *
  * Reads from the environment (set by GitHub Actions):
  *   PR_NUMBER / argv[2]  pull request number reviewed
@@ -69,6 +75,14 @@ function requireEnv(name) {
   const value = process.env[name];
   if (!value) fail(`${name} must be set`);
   return value;
+}
+
+// The pull request the scripts work on: its number from argv[2] or
+// PR_NUMBER, and its repository from GITHUB_REPOSITORY.
+export function prArguments() {
+  const prNumber = process.argv[2] || process.env.PR_NUMBER;
+  if (!prNumber) fail('PR number required (argv[2] or PR_NUMBER)');
+  return { prNumber: Number(prNumber), repo: requireEnv('GITHUB_REPOSITORY') };
 }
 
 // Run a GraphQL query/mutation via gh. Numbers go through -F so they arrive
@@ -246,9 +260,21 @@ export function approvalBlocker({ findings, risk, title, maxRisk, types }) {
   return null;
 }
 
+const PUSHED_MESSAGE = 'New commits were pushed after the automatic approval.';
+const NOT_APPROVED_MESSAGE = 'The latest review did not approve the pull request.';
+
 function approvalNote(risk, title) {
   const type = TITLE_TYPE.exec(title)[1].toLowerCase();
   return `_Approved automatically: a \`${type}\` change with ${risk.level} risk and no findings._`;
+}
+
+// The approving reviews of the token's identity that no longer hold: the
+// ones on a commit other than headSha, and the one on headSha too when it is
+// rejectedSha, a commit the latest review did not approve. A review whose
+// commit is gone never holds.
+export function approvalsToDismiss(reviews, headSha, rejectedSha = null) {
+  const keepSha = headSha === rejectedSha ? null : headSha;
+  return reviews.filter((review) => review.viewerDidAuthor && review.commit?.oid !== keepSha);
 }
 
 // The commit of the PR head checkout that the review read.
@@ -337,6 +363,41 @@ const SUBMIT_REVIEW = `mutation($reviewId: ID!, $body: String!) {
   }
 }`;
 
+const APPROVALS_QUERY = `query($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      headRefOid
+      reviews(states: APPROVED, last: 100) { nodes { id url viewerDidAuthor commit { oid } } }
+    }
+  }
+}`;
+
+const DISMISS_REVIEW = `mutation($reviewId: ID!, $message: String!) {
+  dismissPullRequestReview(input: {pullRequestReviewId: $reviewId, message: $message}) {
+    pullRequestReview { id }
+  }
+}`;
+
+// Dismiss the approvals of the token's identity on the PR that no longer
+// hold; see approvalsToDismiss. Returns how many it found.
+export function dismissApprovals(repo, number, { rejectedSha = null } = {}) {
+  const [owner, name] = repo.split('/');
+  const pr = graphql(APPROVALS_QUERY, { owner, name, number }).repository.pullRequest;
+  const stale = approvalsToDismiss(pr.reviews.nodes, pr.headRefOid, rejectedSha);
+  for (const review of stale) {
+    const message = review.commit?.oid === pr.headRefOid ? NOT_APPROVED_MESSAGE : PUSHED_MESSAGE;
+    try {
+      graphql(DISMISS_REVIEW, { reviewId: review.id, message });
+      console.log(`Auto-approve: dismissed ${review.url}`);
+    } catch {
+      // Such as when the review run and the push's dismiss-stale-approval
+      // run both dismiss the same approval
+      console.log(`::warning::Auto-approve: could not dismiss ${review.url}`);
+    }
+  }
+  return stale.length;
+}
+
 // Try-then-demote: line-level → file-level → summary list. Anchoring rules
 // (line must be in the PR diff; renamed/deleted/binary files) are GitHub's to
 // judge — any failure demotes, nothing breaks the review. A failure is either
@@ -378,12 +439,7 @@ function logPosted(review) {
 }
 
 function main() {
-  const prNumber = process.argv[2] || process.env.PR_NUMBER;
-  if (!prNumber) {
-    console.error('PR number required (argv[2] or PR_NUMBER)');
-    process.exit(2);
-  }
-  const repo = requireEnv('GITHUB_REPOSITORY');
+  const { prNumber, repo } = prArguments();
   const findingsFile = requireEnv('FINDINGS_FILE');
   let approval;
   try {
@@ -408,23 +464,39 @@ function main() {
   }
 
   const [owner, name] = repo.split('/');
-  const pr = graphql(PR_QUERY, { owner, name, number: Number(prNumber) }).repository.pullRequest;
+  const pr = graphql(PR_QUERY, { owner, name, number: prNumber }).repository.pullRequest;
 
   for (const stale of pr.reviews.nodes) {
     console.warn(`Deleting stale pending review ${stale.id}`);
     graphql(DELETE_PENDING, { reviewId: stale.id });
   }
 
+  const reviewed = approval ? reviewedSha() : null;
   let approve = false;
   if (approval) {
     let blocker = approvalBlocker({ findings, risk, title: pr.title, ...approval });
-    if (!blocker && reviewedSha() !== pr.headRefOid) {
+    if (!blocker && reviewed !== pr.headRefOid) {
       blocker = 'the PR head is no longer the reviewed commit';
     }
     approve = !blocker;
     console.log(approve ? 'Auto-approve: approving' : `Auto-approve: skipped, ${blocker}`);
   }
 
+  postReview(repo, pr, findings, risk, approve);
+
+  // An approval holds only while the latest review approves the head it
+  // reviewed. The dismiss-stale-approval run of a push during the approval
+  // may have looked before the approval existed, so check the head once it
+  // does. A run that did not approve withdraws the approval of the commit it
+  // reviewed, but says nothing about a newer head.
+  if (approval) {
+    dismissApprovals(repo, prNumber, { rejectedSha: approve ? null : reviewed });
+  }
+}
+
+// Post the review: an approval, a body-only comment, or the findings as
+// threads under a summary.
+function postReview(repo, pr, findings, risk, approve) {
   if (!findings.length) {
     const body = summaryBody(repo, pr.headRefOid, [], [], 0, risk);
     if (approve) {

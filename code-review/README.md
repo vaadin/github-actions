@@ -77,6 +77,17 @@ approve pull requests" in the repository settings. A token cannot approve a
 pull request that its own identity opened. When GitHub refuses the approval,
 the action posts the review as a comment and logs a warning.
 
+An automatic approval holds only while the latest review approves the
+commit it reviewed. To dismiss it when new commits are pushed, run the action
+with `mode: dismiss-stale-approval` on the `synchronize` event of the pull
+request, as in the [example](#example-caller-workflow). This mode only
+dismisses the approvals of the `github-token` identity made on an earlier
+commit, so human approvals stay. Pass it the same token as the review. On a
+branch that restricts who can dismiss reviews, the token's identity must be
+allowed to. The review itself dismisses the automatic approvals on earlier
+commits, its own included when new commits arrive while it approves, and the
+one on the commit it reviewed when it does not approve that commit.
+
 ## Tuning
 
 Deliberately hard-coded, each a one-line edit:
@@ -90,7 +101,7 @@ Deliberately hard-coded, each a one-line edit:
 
 ## Requirements
 
-The calling workflow must, before invoking this action:
+In the review mode, the calling workflow must, before invoking this action:
 
 - **Check out the PR head** (`refs/pull/<number>/head`) — it is the review's
   working tree. The prepare step fetches the merge-base commit with the
@@ -99,14 +110,16 @@ The calling workflow must, before invoking this action:
   pin a version).
 
 The job needs `pull-requests: write` (post the review) and `issues: write`
-(if the caller reacts to the trigger comment).
+(if the caller reacts to the trigger comment). The dismiss-stale-approval
+mode needs neither the checkout nor Node set up, only `pull-requests: write`.
 
 ## Inputs
 
 | Input | Required | Default | Description |
 |---|---|---|---|
-| `anthropic-api-key` | yes | | Anthropic API key (pass `secrets.ANTHROPIC_API_KEY`). |
-| `pr-number` | yes | | Number of the pull request to review. |
+| `mode` | no | `review` | `review` reviews the pull request. `dismiss-stale-approval` dismisses the automatic approvals made on an earlier commit; see [Auto-approval](#auto-approval). |
+| `anthropic-api-key` | in `review` mode | | Anthropic API key (pass `secrets.ANTHROPIC_API_KEY`). |
+| `pr-number` | yes | | Number of the pull request. |
 | `profile` | no | `code` | Review profile: `code` or `docs`. See [Profiles](#profiles). |
 | `github-token` | no | `github.token` | Token used to prepare the review inputs (including fetching the merge-base commit, so it needs read access to private repositories) and post the review; its identity is the review author. Pass a bot token to post under a bot identity. |
 | `reference-repos` | no | `''` | Upstream repositories to clone as read-only context, one `owner/repo \| description` per line. |
@@ -132,20 +145,16 @@ The job needs `pull-requests: write` (post the review) and `issues: write`
 name: Code Review
 
 # Reviews a pull request, triggered automatically when a PR is opened
-# (eligibility rules on the job condition) or by a "/code-review" PR comment.
+# (eligibility rules on the job condition) or by a "/code-review" PR comment,
+# and dismisses the automatic approval of the review when new commits are
+# pushed.
 
 on:
   issue_comment:
     types: [created]
   pull_request:
-    types: [opened]
+    types: [opened, synchronize]
     branches: [main]
-
-# One review per PR at a time; a re-trigger queues instead of aborting a run
-# that may be mid-posting.
-concurrency:
-  group: code-review-${{ github.event.issue.number || github.event.pull_request.number }}
-  cancel-in-progress: false
 
 env:
   PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
@@ -161,11 +170,18 @@ jobs:
        github.event.comment.body == '/code-review' &&
        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
       (github.event_name == 'pull_request' &&
+       github.event.action == 'opened' &&
        github.event.pull_request.draft == false &&
        !contains(fromJSON('["dependabot[bot]", "vaadin-bot"]'), github.event.pull_request.user.login) &&
        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) &&
        !startsWith(github.event.pull_request.title, 'chore:') &&
        !startsWith(github.event.pull_request.title, 'chore('))
+    # One review per PR at a time; a re-trigger queues instead of aborting a
+    # run that may be mid-posting. Set on the job, so that a push never waits
+    # for a review to dismiss its approval.
+    concurrency:
+      group: code-review-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -202,5 +218,19 @@ jobs:
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           pr-number: ${{ env.PR_NUMBER }}
+          auto-approve: 'true'
           upload-execution-log: ${{ vars.CLAUDE_DEBUG }}
+
+  # Checks out no code: the dismissal goes through the GitHub API only.
+  dismiss-stale-approval:
+    if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Dismiss stale approval
+        uses: vaadin/github-actions/code-review@main # pin to a SHA
+        with:
+          mode: dismiss-stale-approval
+          pr-number: ${{ env.PR_NUMBER }}
 ```
