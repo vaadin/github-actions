@@ -12,11 +12,14 @@ posts the findings as a single PR review:
 2. **Review** — one read-only Claude Code session reviews the changes against
    the focus areas of the selected [profile](#profiles), writes a
    free-text judgement per finding, grades each finding's `value`
-   (`high` / `medium` / `low`), and reports once as structured output.
+   (`high` / `medium` / `low`), rates the risk of the change (`low` /
+   `medium` / `high`, `code` profile only), and reports once as structured
+   output.
 3. **Select & post** — selection is mechanical: findings at or above the
    value bar are posted as one review — each finding as an inline review
    thread (demoted line-level → file-level → summary list as anchoring
-   fails) plus a summary body with an overview line and a table. The agent
+   fails) plus a summary body with an overview line, the risk of the change
+   and a table. The agent
    never hears which tiers ship, so it has no incentive to inflate borderline
    findings.
 
@@ -38,10 +41,15 @@ repository checkouts, instruction injection, and the session job summary.
 The `profile` input selects the review prompt. The profiles share the tools,
 the findings schema, the value tiers and the posting.
 
-| Profile | Prompt | Reviews | Categories |
-|---|---|---|---|
-| `code` (default) | [prompts/review.md](prompts/review.md) | Framework and library code | `correctness`, `documentation`, `tests`, `conventions` |
-| `docs` | [prompts/review-docs.md](prompts/review-docs.md) | Documentation pages and their code examples | `accuracy`, `clarity`, `examples`, `placement`, `conventions` |
+| Profile | Prompt | Reviews | Categories | Risk |
+|---|---|---|---|---|
+| `code` (default) | [prompts/review.md](prompts/review.md) | Framework and library code | `correctness`, `documentation`, `tests`, `conventions` | yes |
+| `docs` | [prompts/review-docs.md](prompts/review-docs.md) | Documentation pages and their code examples | `accuracy`, `clarity`, `examples`, `placement`, `conventions` | no |
+
+A profile with risk adds a `risk` object (`level`, `reason`) to the
+structured output. The agent rates the risk of merging the change by its
+impact, blast radius, uncertainty and reversibility. The risk goes into the
+findings file, the findings summary and the review body.
 
 The prompts ship with the action. A caller cannot pass a prompt file, so a
 pull request cannot change the prompt that reviews it. Pass
@@ -87,8 +95,9 @@ The job needs `pull-requests: write` (post the review) and `issues: write`
 ## Artifacts
 
 - `code-review-findings-pr<N>-…` — the findings summary markdown, uploaded on
-  every run: every reported finding with location, category, value tier,
-  summary, explanation, and judgement, grouped into posted / withheld.
+  every run: the risk of the change (when the profile rates it), and every
+  reported finding with location, category, value tier, summary,
+  explanation, and judgement, grouped into posted / withheld.
 - `code-review-execution-…` — the full execution log, only when
   `upload-execution-log` is `'true'`.
 

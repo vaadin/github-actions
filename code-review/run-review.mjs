@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
  * Run the CI code review: one headless Claude Code session reviews the
- * prepared PR inputs, grades each of its own findings into a value tier, and
- * reports once as structured output; then mechanical selection decides what
- * ships.
+ * prepared PR inputs, grades each of its own findings into a value tier,
+ * rates the risk of the change (profiles with `risk`), and reports once as
+ * structured output; then mechanical selection decides what ships.
  *
  * The session is read-only. --tools restricts the set the model is offered to
  * research tools (no Write/Edit, no subagents, no web) — --allowedTools does
@@ -32,13 +32,14 @@
  *                        lib/claude-prepare.mjs (carries additionalDirectories)
  *   EXTRA_ALLOWED_TOOLS  optional repository-specific --allowedTools additions,
  *                        comma- or newline-separated
- *   PROFILE              review profile, a key of PROFILE_PROMPTS; default
- *                        'code'
+ *   PROFILE              review profile, a key of PROFILES; default 'code'
  *
  * Produces under $RUNNER_TEMP/review-output:
  *   transcript.jsonl     the session's stream-json transcript (execution log)
- *   findings.json        the emitted findings; the input of post-review.mjs
- *   findings-summary.md  every finding with judgement and value; the artifact
+ *   findings.json        the emitted findings and, for profiles with `risk`,
+ *                        the risk assessment; the input of post-review.mjs
+ *   findings-summary.md  the risk assessment and every finding with judgement
+ *                        and value; the artifact
  *
  * Writes step outputs ($GITHUB_OUTPUT) for the later action steps:
  * execution-file, findings-file. execution-file is written as soon as the
@@ -93,13 +94,25 @@ const ALLOWED_BASH_COMMANDS = [
 
 const TIER_RANK = { high: 3, medium: 2, low: 1 };
 
-// The review prompt of each profile, under prompts/. The prompts ship with
-// the action and are never read from the reviewed checkout, so a pull request
-// cannot rewrite the instructions that review it. Every profile shares the
-// tool instructions, the findings schema and the value tiers.
-const PROFILE_PROMPTS = {
-  code: 'review.md',
-  docs: 'review-docs.md',
+// The review prompt of each profile, under prompts/, and whether the profile
+// rates the risk of the change. The prompts ship with the action and are never
+// read from the reviewed checkout, so a pull request cannot rewrite the
+// instructions that review it. Every profile shares the tool instructions,
+// the findings schema and the value tiers.
+const PROFILES = {
+  code: { prompt: 'review.md', risk: true },
+  docs: { prompt: 'review-docs.md', risk: false },
+};
+
+// The risk assessment that profiles with `risk` add to the findings schema.
+const RISK_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    level: { type: 'string', enum: ['low', 'medium', 'high'] },
+    reason: { type: 'string' },
+  },
+  required: ['level', 'reason'],
 };
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -210,7 +223,7 @@ function oneLine(text) {
   return String(text ?? '').replace(/\s*\n\s*/g, ' ').trim();
 }
 
-function summaryMarkdown(emitted, withheld) {
+function summaryMarkdown(emitted, withheld, risk) {
   const listEntry = (f) =>
     `- [${f.value}] \`${findingLocation(f)}\` (${f.category}) — ${oneLine(f.summary)}`;
   const section = (title, items) => [
@@ -237,6 +250,7 @@ function summaryMarkdown(emitted, withheld) {
     `tier. Findings at or above the \`${VALUE_BAR}\` bar were posted to the`,
     'PR; the rest were withheld.',
     '',
+    ...(risk ? [`**Risk:** ${risk.level} — ${oneLine(risk.reason)}`, ''] : []),
     ...section('Posted findings', emitted),
     ...section('Withheld findings (below the bar)', withheld),
     '## Finding details',
@@ -249,12 +263,13 @@ async function main() {
   const runnerTemp = requireEnv('RUNNER_TEMP');
   const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
   const profile = process.env.PROFILE || 'code';
-  if (!Object.hasOwn(PROFILE_PROMPTS, profile)) {
+  if (!Object.hasOwn(PROFILES, profile)) {
     fail(
       `Unknown review profile "${profile}". ` +
-        `Expected one of: ${Object.keys(PROFILE_PROMPTS).join(', ')}.`
+        `Expected one of: ${Object.keys(PROFILES).join(', ')}.`
     );
   }
+  const { prompt: promptFile, risk: assessesRisk } = PROFILES[profile];
 
   const reviewInputsPath = path.join(runnerTemp, 'pr-review', 'review-inputs.md');
   if (!fs.existsSync(reviewInputsPath)) {
@@ -269,7 +284,7 @@ async function main() {
   const summaryPath = path.join(outDir, 'findings-summary.md');
 
   const prompt = fs
-    .readFileSync(path.join(HERE, 'prompts', PROFILE_PROMPTS[profile]), 'utf8')
+    .readFileSync(path.join(HERE, 'prompts', promptFile), 'utf8')
     .replaceAll('{{REVIEW_INPUTS}}', reviewInputs);
   const toolInstructions = fs
     .readFileSync(path.join(HERE, 'prompts', '_tools.md'), 'utf8')
@@ -277,6 +292,10 @@ async function main() {
   const schema = JSON.parse(
     fs.readFileSync(path.join(HERE, 'review-schema.json'), 'utf8')
   );
+  if (assessesRisk) {
+    schema.properties.risk = RISK_SCHEMA;
+    schema.required.push('risk');
+  }
 
   const allowedTools = [
     ...ALLOWED_BASH_COMMANDS.map((cmd) => `Bash(${cmd}:*)`),
@@ -308,6 +327,10 @@ async function main() {
     fail('Review produced no structured output — the review was lost.');
   }
   const curated = report.findings;
+  const risk = assessesRisk ? report.risk : undefined;
+  if (assessesRisk && !RISK_SCHEMA.properties.level.enum.includes(risk?.level)) {
+    fail('Review produced no valid risk assessment.');
+  }
 
   // --- Mechanical selection -------------------------------------------------
   // The agent classified; the pipeline decides what ships. Tier order within
@@ -320,18 +343,19 @@ async function main() {
 
   fs.writeFileSync(
     findingsPath,
-    JSON.stringify({ findings: emitted }, null, 2) + '\n'
+    JSON.stringify({ findings: emitted, risk }, null, 2) + '\n'
   );
-  fs.writeFileSync(summaryPath, summaryMarkdown(emitted, withheld) + '\n');
+  fs.writeFileSync(summaryPath, summaryMarkdown(emitted, withheld, risk) + '\n');
   writeOutput('findings-file', findingsPath);
 
   const cost =
     typeof result.total_cost_usd === 'number'
       ? ` ($${result.total_cost_usd.toFixed(2)})`
       : '';
+  const riskNote = risk ? `, risk ${risk.level}` : '';
   console.log(
     `Review reported ${curated.length} finding(s): ${emitted.length} to post, ` +
-      `${withheld.length} below the bar${cost}.`
+      `${withheld.length} below the bar${riskNote}${cost}.`
   );
 }
 

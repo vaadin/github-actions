@@ -11,19 +11,28 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.join(HERE, 'run-review.mjs');
 const INPUTS = '- **Diff**: `/tmp/pr-review/pr.diff`';
 
+const RISK = { level: 'medium', reason: 'Changes shared code.' };
+
 // Runs run-review.mjs against a stub `claude` that records the prompt it
-// receives on stdin and reports no findings.
-function runReview(profile) {
+// receives on stdin and its arguments, and reports `output` as the structured
+// output (by default no findings and the risk above).
+function runReview(profile, output = { findings: [], risk: RISK }) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-review-'));
   fs.mkdirSync(path.join(dir, 'pr-review'));
   fs.writeFileSync(path.join(dir, 'pr-review', 'review-inputs.md'), INPUTS);
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin);
   const promptFile = path.join(dir, 'prompt.md');
+  const argsFile = path.join(dir, 'args.txt');
+  const resultFile = path.join(dir, 'result.json');
+  fs.writeFileSync(
+    resultFile,
+    JSON.stringify({ type: 'result', structured_output: output }) + '\n'
+  );
   fs.writeFileSync(
     path.join(bin, 'claude'),
-    `#!/bin/sh\ncat > '${promptFile}'\n` +
-      `echo '{"type":"result","structured_output":{"findings":[]}}'\n`,
+    `#!/bin/sh\ncat > '${promptFile}'\nprintf '%s\\n' "$@" > '${argsFile}'\n` +
+      `cat '${resultFile}'\n`,
     { mode: 0o755 }
   );
   const env = {
@@ -37,9 +46,14 @@ function runReview(profile) {
   delete env.SETTINGS;
   if (profile !== undefined) env.PROFILE = profile;
   const result = spawnSync(process.execPath, [SCRIPT], { env, encoding: 'utf8' });
-  const prompt = fs.existsSync(promptFile) ? fs.readFileSync(promptFile, 'utf8') : null;
+  const read = (file) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null);
+  const prompt = read(promptFile);
+  const args = read(argsFile)?.split('\n');
+  const schema = args && JSON.parse(args[args.indexOf('--json-schema') + 1]);
+  const findingsFile = read(path.join(dir, 'review-output', 'findings.json'));
+  const findings = findingsFile && JSON.parse(findingsFile);
   fs.rmSync(dir, { recursive: true, force: true });
-  return { ...result, prompt };
+  return { ...result, prompt, schema, findings };
 }
 
 function promptTemplate(file) {
@@ -70,4 +84,28 @@ test('fails on an unknown profile before starting a session', () => {
     assert.match(stderr, /Unknown review profile .*Expected one of: code, docs\./);
     assert.strictEqual(prompt, null, `profile ${profile}`);
   }
+});
+
+test('requires and passes on the risk assessment in the code profile', () => {
+  const { status, stderr, schema, findings } = runReview('code');
+  assert.strictEqual(status, 0, stderr);
+  assert.ok(schema.required.includes('risk'));
+  assert.deepStrictEqual(schema.properties.risk.properties.level.enum, ['low', 'medium', 'high']);
+  assert.deepStrictEqual(findings, { findings: [], risk: RISK });
+});
+
+test('fails when the code profile reports no valid risk', () => {
+  for (const risk of [undefined, { level: 'critical', reason: '' }]) {
+    const { status, stderr } = runReview('code', { findings: [], risk });
+    assert.strictEqual(status, 1);
+    assert.match(stderr, /no valid risk assessment/);
+  }
+});
+
+test('does not assess risk in the docs profile', () => {
+  const { status, stderr, schema, findings } = runReview('docs', { findings: [] });
+  assert.strictEqual(status, 0, stderr);
+  assert.ok(!('risk' in schema.properties));
+  assert.ok(!schema.required.includes('risk'));
+  assert.deepStrictEqual(findings, { findings: [] });
 });

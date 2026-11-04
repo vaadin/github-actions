@@ -10,8 +10,9 @@
  *
  * Every finding is posted as its own inline review thread, demoted
  * line-level → file-level → summary list as anchoring fails. The summary body
- * holds the overview line, a table over all findings, and the full prose of
- * any findings that could not be attached to the diff.
+ * holds the overview line, the risk of the change (when the profile rates
+ * it), a table over all findings, and the full prose of any findings that
+ * could not be attached to the diff.
  *
  * Posting uses the GraphQL pending-review flow so all threads and the summary
  * are posted as one review (single notification).
@@ -19,8 +20,9 @@
  * Reads from the environment (set by GitHub Actions):
  *   PR_NUMBER / argv[2]  pull request number reviewed
  *   FINDINGS_FILE        findings JSON written by run-review.mjs
- *                        ({findings: [...]}); each finding has file, line,
- *                        summary, explanation, category, judgement, value
+ *                        ({findings: [...], risk?}); each finding has file,
+ *                        line, summary, explanation, category, judgement,
+ *                        value; risk has level and reason
  *   GITHUB_REPOSITORY    owner/repo
  *   GH_TOKEN             token for the gh CLI; its identity is the review
  *                        author
@@ -180,12 +182,24 @@ function overviewLine(unanchored, inlineCount) {
   return `Reviewed the changes — ${joinNaturally(clauses)}.`;
 }
 
-// Summary body: overview line, then the table over all findings, then the
-// full prose of the findings whose inline anchoring failed (visible, not
-// collapsed) — commented findings keep their prose in the inline comment.
-// Zero-findings runs still post.
-function summaryBody(repo, headSha, findings, unanchored, inlineCount) {
+const RISK_EMOJI = { low: '🟢', medium: '🟡', high: '🔴' };
+
+// The risk of the change, as rated by the review agent.
+function riskLine(risk) {
+  const reason = (risk.reason || '').replace(/\s*\n\s*/g, ' ').trim();
+  const level = `**Risk: ${RISK_EMOJI[risk.level] || '⚪'} ${risk.level}**`;
+  return reason ? `${level} — ${reason}` : level;
+}
+
+// Summary body: overview line, then the risk of the change, then the table
+// over all findings, then the full prose of the findings whose inline
+// anchoring failed (visible, not collapsed) — commented findings keep their
+// prose in the inline comment. Zero-findings runs still post.
+function summaryBody(repo, headSha, findings, unanchored, inlineCount, risk) {
   const parts = [overviewLine(unanchored, inlineCount)];
+  if (risk) {
+    parts.push(riskLine(risk));
+  }
   if (findings.length) {
     parts.push(findingsTable(findings));
   }
@@ -296,8 +310,10 @@ function main() {
   const repo = requireEnv('GITHUB_REPOSITORY');
   const findingsFile = requireEnv('FINDINGS_FILE');
 
-  const findings = JSON.parse(fs.readFileSync(findingsFile, 'utf8')).findings.map(normalize);
-  console.log(`Findings: ${findings.length} total`);
+  const report = JSON.parse(fs.readFileSync(findingsFile, 'utf8'));
+  const findings = report.findings.map(normalize);
+  const risk = report.risk;
+  console.log(`Findings: ${findings.length} total${risk ? `, risk ${risk.level}` : ''}`);
 
   if (process.env.DRY_RUN) {
     console.log('\n--- inline thread bodies ---');
@@ -305,7 +321,7 @@ function main() {
       console.log(`\n[${fileLabel(finding)}]\n${threadBody(repo, 'HEAD', finding)}`);
     }
     console.log('\n--- summary body ---\n');
-    console.log(summaryBody(repo, 'HEAD', findings, [], findings.length));
+    console.log(summaryBody(repo, 'HEAD', findings, [], findings.length, risk));
     return;
   }
 
@@ -318,7 +334,7 @@ function main() {
   }
 
   if (!findings.length) {
-    const body = summaryBody(repo, pr.headRefOid, [], [], 0);
+    const body = summaryBody(repo, pr.headRefOid, [], [], 0, risk);
     const result = graphql(ADD_BODY_ONLY, { prId: pr.id, body });
     logPosted(result.addPullRequestReview.pullRequestReview);
     return;
@@ -337,7 +353,7 @@ function main() {
     }
   }
 
-  const body = summaryBody(repo, pr.headRefOid, findings, unanchored, posted);
+  const body = summaryBody(repo, pr.headRefOid, findings, unanchored, posted, risk);
   const result = graphql(SUBMIT_REVIEW, { reviewId, body });
   logPosted(result.submitPullRequestReview.pullRequestReview);
 }
