@@ -27,8 +27,13 @@ the PR.
 
 The review session runs the Claude Code CLI directly (pinned in
 [action.yml](action.yml)); the session is read-only via `--tools`
-(Read/Grep/Glob/Bash only — no write, subagent, or web tools), with a
-read-only Bash command allowlist that is also advertised to the agent.
+(Read/Grep/Glob/Bash only — no write, subagent, or web tools).
+
+The action passes no Bash allow rule. Claude Code approves a read-only
+command on its own. It checks the flags and the paths of the command, so it
+refuses `sed -i`, `sort -o`, `git log --output` and reads outside the working
+directories. The tool instructions list the commands that run on the pinned
+version.
 
 Shared scripts in [`lib/`](../lib/) provide optional read-only reference
 repository checkouts, instruction injection, and the session job summary.
@@ -81,7 +86,7 @@ The job needs `pull-requests: write` (post the review) and `issues: write`
 | `github-token` | no | `github.token` | Token used to prepare the review inputs (including fetching the merge-base commit, so it needs read access to private repositories) and post the review; its identity is the review author. Pass a bot token to post under a bot identity. |
 | `reference-repos` | no | `''` | Upstream repositories to clone as read-only context, one `owner/repo \| description` per line. |
 | `extra-instructions` | no | `''` | Repository-specific review instructions, injected as project instructions. |
-| `extra-allowed-tools` | no | `''` | Read-only additions to the Bash auto-approve allowlist, comma- or newline-separated, in `--allowedTools` syntax. |
+| `extra-allowed-tools` | no | `''` | Allow rules for read-only Bash commands that Claude Code does not approve on its own, comma- or newline-separated, in `--allowedTools` syntax. A `Bash(<command>:*)` rule admits every flag of the command, so prefer an exact command. |
 | `upload-execution-log` | no | `'false'` | Set `'true'` to upload the full execution log as an artifact (world-readable on public repositories). Typically wired to `vars.CLAUDE_DEBUG`. |
 
 ## Artifacts

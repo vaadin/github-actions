@@ -6,10 +6,10 @@
  * ships.
  *
  * The session is read-only. --tools restricts the set the model is offered to
- * research tools (no Write/Edit, no subagents, no web) — --allowedTools does
- * not do that: it is only an auto-approve list for the permission layer, used
- * here to approve the read-only Bash commands below. The StructuredOutput
- * tool injected by --json-schema survives --tools and is auto-allowed.
+ * research tools (no Write/Edit, no subagents, no web). Bash runs only the
+ * commands that Claude Code itself approves as read-only (see BASH_COMMANDS).
+ * The StructuredOutput tool injected by --json-schema survives --tools and is
+ * auto-allowed.
  *
  * The agent never hears which value tiers ship: selection is mechanical here
  * (VALUE_BAR), so the agent has no incentive to inflate borderline findings
@@ -30,8 +30,9 @@
  *   ANTHROPIC_API_KEY    inherited by the claude process (bills the review)
  *   SETTINGS             optional settings JSON for --settings, produced by
  *                        lib/claude-prepare.mjs (carries additionalDirectories)
- *   EXTRA_ALLOWED_TOOLS  optional repository-specific --allowedTools additions,
- *                        comma- or newline-separated
+ *   EXTRA_ALLOWED_TOOLS  optional repository-specific --allowedTools rules,
+ *                        comma- or newline-separated; the only allow rules
+ *                        the session gets
  *   PROFILE              review profile, a key of PROFILE_PROMPTS; default
  *                        'code'
  *
@@ -75,20 +76,18 @@ const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 // read-only claim is true at the model layer.
 const TOOLS = 'Read,Grep,Glob,Bash';
 
-// Read-only commands Bash may run without a permission prompt. An
-// auto-approve list, not a capability boundary — that is --tools above. Kept
-// as bare command names so the same list feeds both --allowedTools and the
-// command list advertised to the agent in prompts/_tools.md: an advertised
-// allowlist that has drifted from the real one is worse than none at all.
+// The Bash commands advertised to the agent in prompts/_tools.md. The action
+// passes no Bash allow rule: Claude Code approves a read-only command on its
+// own and checks its flags and paths, so it refuses `sed -i`, `sort -o`,
+// `git log --output`, `find -delete`, output redirection and reads outside the
+// working directories. A `Bash(<command>:*)` prefix rule would admit every
+// flag of its command, including the ones that write a file.
 //
-// `sed` and `awk` are a deliberate compromise: prefix patterns cannot exclude
-// flags, so `Bash(sed:*)` also admits `sed -i`. --tools withholding
-// Write/Edit is the real guarantee here; a review agent has no motive to
-// mutate the tree.
-const ALLOWED_BASH_COMMANDS = [
-  'git diff', 'git log', 'git show', 'git blame', 'git status',
-  'ls', 'cat', 'find', 'grep', 'rg', 'head', 'tail', 'wc',
-  'sed', 'awk', 'sort', 'uniq', 'comm', 'diff', 'cut', 'tr', 'basename',
+// Every command below runs without an allow rule on the Claude Code version
+// pinned in action.yml. Check the list again when that version changes.
+const BASH_COMMANDS = [
+  'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'find',
+  'sed -n', 'sort', 'uniq', 'cut', 'tr', 'diff',
 ];
 
 const TIER_RANK = { high: 3, medium: 2, low: 1 };
@@ -143,10 +142,10 @@ function runClaude(prompt, { cwd, allowedTools, toolInstructions, schema, settin
     '--verbose', // required for stream-json in --print mode
     '--model', MODEL,
     '--tools', TOOLS,
-    '--allowedTools', allowedTools,
     '--append-system-prompt', toolInstructions,
     '--json-schema', JSON.stringify(schema),
   ];
+  if (allowedTools) args.push('--allowedTools', allowedTools);
   if (settings) args.push('--settings', settings);
 
   return new Promise((resolve, reject) => {
@@ -273,15 +272,12 @@ async function main() {
     .replaceAll('{{REVIEW_INPUTS}}', reviewInputs);
   const toolInstructions = fs
     .readFileSync(path.join(HERE, 'prompts', '_tools.md'), 'utf8')
-    .replaceAll('{{BASH_COMMANDS}}', ALLOWED_BASH_COMMANDS.join(', '));
+    .replaceAll('{{BASH_COMMANDS}}', BASH_COMMANDS.join(', '));
   const schema = JSON.parse(
     fs.readFileSync(path.join(HERE, 'review-schema.json'), 'utf8')
   );
 
-  const allowedTools = [
-    ...ALLOWED_BASH_COMMANDS.map((cmd) => `Bash(${cmd}:*)`),
-    ...parseToolList(process.env.EXTRA_ALLOWED_TOOLS),
-  ].join(',');
+  const allowedTools = parseToolList(process.env.EXTRA_ALLOWED_TOOLS).join(',');
 
   const run = await runClaude(prompt, {
     cwd: workspace,

@@ -52,11 +52,12 @@ inputs:
     default: ''
   extra-allowed-tools:
     description: >-
-      Repository-specific additions to the auto-approve tool allowlist. The
-      base list is read-only Bash commands; keep additions read-only too.
-      Comma- or newline-separated entries in --allowedTools syntax, e.g.
-      "Bash(mvn dependency:tree:*)". Note the model is only offered
-      Read/Grep/Glob/Bash, so only Bash entries have an effect.
+      Repository-specific allow rules for read-only Bash commands that Claude
+      Code does not approve on its own. The action passes no other allow
+      rule. A "Bash(<command>:*)" rule admits every flag of the command, so
+      prefer an exact command, e.g. "Bash(mvn dependency:tree)". Comma- or
+      newline-separated entries in --allowedTools syntax. Note the model is
+      only offered Read/Grep/Glob/Bash, so only Bash entries have an effect.
     required: false
     default: ''
   upload-execution-log:
