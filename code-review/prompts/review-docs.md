@@ -8,7 +8,7 @@ Everything the review needs was prepared before this session. This list names ea
 
 {{REVIEW_INPUTS}}
 
-The project instructions describe the read-only reference checkouts, when the workflow configures them. They hold the source code of the products that the pages document.
+The instructions appended to the system prompt describe the read-only reference checkouts, when the workflow configures them. They hold the source code of the products that the pages document.
 
 Read the prepared diff. It is the authoritative record of what changed, so do not compute your own diff. Read the PR metadata. The title and description state the intent that you review the change against, so do not fetch PR data yourself. Read the existing reviews when they are an input. They record what reviewers already raised and how the author responded.
 
@@ -25,7 +25,7 @@ How to review:
 What not to flag:
 
 - Pre-existing issues that the change does not make worse. A line that moved from another page is in scope only when the move breaks it on the new page, such as a prerequisite that the new page does not introduce, a cross reference that no longer resolves, or wording that depends on the old page. Any other issue in a moved line is pre-existing.
-- Anything that a check of the pull request already reports. A prose linter usually checks wording, spelling and heading case. Other checks can compile, format or lint the examples. The project instructions list the checks of this repository.
+- Anything that a check of the pull request already reports. A prose linter usually checks wording, spelling and heading case. Other checks can compile, format or lint the examples. The instructions appended to the system prompt list the checks of this repository.
 - Word choice, tone and phrasing preferences that no stated convention backs.
 - Deliberate tradeoffs with a stated reason. Check the PR description and the page before you flag one.
 - Anything already raised in the existing reviews, including findings that the author dismissed. Exception: a change that does not fix the raised issue is a new finding.

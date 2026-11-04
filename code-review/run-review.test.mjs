@@ -11,18 +11,20 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.join(HERE, 'run-review.mjs');
 const INPUTS = '- **Diff**: `/tmp/pr-review/pr.diff`';
 
-// Runs run-review.mjs against a stub `claude` that records the prompt it
-// receives on stdin and reports no findings.
-function runReview(profile) {
+// Runs run-review.mjs against a stub `claude` that records its arguments and
+// the prompt it receives on stdin, and reports no findings. `extraEnv` adds
+// environment variables.
+function runReview(profile, extraEnv = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-review-'));
   fs.mkdirSync(path.join(dir, 'pr-review'));
   fs.writeFileSync(path.join(dir, 'pr-review', 'review-inputs.md'), INPUTS);
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin);
   const promptFile = path.join(dir, 'prompt.md');
+  const argsFile = path.join(dir, 'args');
   fs.writeFileSync(
     path.join(bin, 'claude'),
-    `#!/bin/sh\ncat > '${promptFile}'\n` +
+    `#!/bin/sh\nprintf '%s\\0' "$@" > '${argsFile}'\ncat > '${promptFile}'\n` +
       `echo '{"type":"result","structured_output":{"findings":[]}}'\n`,
     { mode: 0o755 }
   );
@@ -31,15 +33,26 @@ function runReview(profile) {
     PATH: `${bin}${path.delimiter}${process.env.PATH}`,
     RUNNER_TEMP: dir,
     GITHUB_WORKSPACE: dir,
+    ...extraEnv,
   };
   delete env.GITHUB_OUTPUT;
   delete env.PROFILE;
   delete env.SETTINGS;
+  if (!('INSTRUCTIONS_FILE' in extraEnv)) delete env.INSTRUCTIONS_FILE;
   if (profile !== undefined) env.PROFILE = profile;
   const result = spawnSync(process.execPath, [SCRIPT], { env, encoding: 'utf8' });
   const prompt = fs.existsSync(promptFile) ? fs.readFileSync(promptFile, 'utf8') : null;
+  const args = fs.existsSync(argsFile)
+    ? fs.readFileSync(argsFile, 'utf8').split('\0').slice(0, -1)
+    : null;
   fs.rmSync(dir, { recursive: true, force: true });
-  return { ...result, prompt };
+  return { ...result, prompt, args };
+}
+
+// The value of a `--flag value` pair in the recorded arguments, or undefined.
+function argValue(args, flag) {
+  const index = args.indexOf(flag);
+  return index === -1 ? undefined : args[index + 1];
 }
 
 function promptTemplate(file) {
@@ -69,5 +82,27 @@ test('fails on an unknown profile before starting a session', () => {
     assert.strictEqual(status, 1, `profile ${profile}`);
     assert.match(stderr, /Unknown review profile .*Expected one of: code, docs\./);
     assert.strictEqual(prompt, null, `profile ${profile}`);
+  }
+});
+
+test('appends the generated instructions after the tool instructions', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'instructions-'));
+  const file = path.join(dir, 'claude-instructions.md');
+  const instructions = '# Reference checkouts\n\nSee flow.\n';
+  fs.writeFileSync(file, instructions);
+  const withFile = runReview(undefined, { INSTRUCTIONS_FILE: file });
+  fs.rmSync(dir, { recursive: true, force: true });
+  assert.strictEqual(withFile.status, 0, withFile.stderr);
+
+  for (const extraEnv of [{}, { INSTRUCTIONS_FILE: '' }]) {
+    const without = runReview(undefined, extraEnv);
+    assert.strictEqual(without.status, 0, without.stderr);
+    const toolInstructions = argValue(without.args, '--append-system-prompt');
+    assert.match(toolInstructions, /^## Tools and shell constraints\n/);
+    assert.ok(!toolInstructions.includes('# Reference checkouts'));
+    assert.strictEqual(
+      argValue(withFile.args, '--append-system-prompt'),
+      `${toolInstructions}\n\n${instructions}`
+    );
   }
 });

@@ -8,7 +8,7 @@ Everything the review needs was prepared before this session and is listed below
 
 {{REVIEW_INPUTS}}
 
-Read-only reference checkouts of related repositories, when configured, are described in the project instructions.
+Read-only reference checkouts of related repositories, when configured, are described in the instructions appended to the system prompt.
 
 Read the prepared diff and treat it as the authoritative record of what changed — do not compute your own diff. Read the PR metadata and treat the title and description as the intent the change is reviewed against — do not fetch PR data yourself. Read the existing reviews, when provided as review input — they record what has already been raised on this PR and how the author responded.
 

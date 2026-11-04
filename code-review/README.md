@@ -31,7 +31,7 @@ The review session runs the Claude Code CLI directly (pinned in
 read-only Bash command allowlist that is also advertised to the agent.
 
 Shared scripts in [`lib/`](../lib/) provide optional read-only reference
-repository checkouts, instruction injection, and the session job summary.
+repository checkouts, the generated instructions, and the session job summary.
 
 ## Profiles
 
@@ -80,7 +80,7 @@ The job needs `pull-requests: write` (post the review) and `issues: write`
 | `profile` | no | `code` | Review profile: `code` or `docs`. See [Profiles](#profiles). |
 | `github-token` | no | `github.token` | Token used to prepare the review inputs (including fetching the merge-base commit, so it needs read access to private repositories) and post the review; its identity is the review author. Pass a bot token to post under a bot identity. |
 | `reference-repos` | no | `''` | Upstream repositories to clone as read-only context, one `owner/repo \| description` per line. |
-| `extra-instructions` | no | `''` | Repository-specific review instructions, injected as project instructions. |
+| `extra-instructions` | no | `''` | Repository-specific review instructions, appended to the system prompt. |
 | `extra-allowed-tools` | no | `''` | Read-only additions to the Bash auto-approve allowlist, comma- or newline-separated, in `--allowedTools` syntax. |
 | `upload-execution-log` | no | `'false'` | Set `'true'` to upload the full execution log as an artifact (world-readable on public repositories). Typically wired to `vars.CLAUDE_DEBUG`. |
 

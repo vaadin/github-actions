@@ -34,6 +34,9 @@
  *                        comma- or newline-separated
  *   PROFILE              review profile, a key of PROFILE_PROMPTS; default
  *                        'code'
+ *   INSTRUCTIONS_FILE    optional generated instructions (reference checkouts,
+ *                        extra-instructions), produced by
+ *                        lib/claude-prepare.mjs; appended to the system prompt
  *
  * Produces under $RUNNER_TEMP/review-output:
  *   transcript.jsonl     the session's stream-json transcript (execution log)
@@ -274,6 +277,13 @@ async function main() {
   const toolInstructions = fs
     .readFileSync(path.join(HERE, 'prompts', '_tools.md'), 'utf8')
     .replaceAll('{{BASH_COMMANDS}}', ALLOWED_BASH_COMMANDS.join(', '));
+  // The generated instructions follow the tool instructions in the appended
+  // system prompt.
+  const instructionsFile = process.env.INSTRUCTIONS_FILE;
+  const appendedSystemPrompt = [
+    toolInstructions,
+    ...(instructionsFile ? [fs.readFileSync(instructionsFile, 'utf8')] : []),
+  ].join('\n\n');
   const schema = JSON.parse(
     fs.readFileSync(path.join(HERE, 'review-schema.json'), 'utf8')
   );
@@ -286,7 +296,7 @@ async function main() {
   const run = await runClaude(prompt, {
     cwd: workspace,
     allowedTools,
-    toolInstructions,
+    toolInstructions: appendedSystemPrompt,
     schema,
     settings: process.env.SETTINGS || '',
   });
