@@ -88,11 +88,13 @@ const TOOLS = 'Read,Grep,Glob,Bash';
 // pinned in action.yml (`uniq` only at the end of a pipe: with a file
 // argument it needs approval). Check the list again when that version changes.
 // `git log` and `git blame` run too but are left out: the checkout is shallow,
-// so they would show one commit and blame every line on it.
+// so they would show one commit and blame every line on it. `git diff` is
+// left out because the prompts tell the agent not to compute its own diff;
+// plain `diff` covers comparing the head and merge-base checkouts.
 const BASH_COMMANDS = [
   'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'rg', 'find',
   'sed -n', 'sort', 'uniq', 'cut', 'tr', 'comm', 'diff', 'basename',
-  'git diff', 'git show', 'git grep', 'git status',
+  'git show', 'git grep', 'git status',
 ];
 
 const TIER_RANK = { high: 3, medium: 2, low: 1 };
