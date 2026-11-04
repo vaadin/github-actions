@@ -20,10 +20,11 @@ How to review:
 - **Verify every claim against a source.** Check each statement that the change adds or edits against the reference checkouts or the compiled examples of this repository. Search before you conclude that an API does not exist.
 - **Compare against the merge-base checkout.** It shows what the page said before the change, and what the change removed.
 - **Verify before reporting.** Read the source, the page or the example that your finding depends on. Do not speculate.
+- **Work through every changed page.** Do not stop after the first findings on a page. A finding is a reason to look harder at that page.
 
 What not to flag:
 
-- Pre-existing issues that the change does not make worse.
+- Pre-existing issues that the change does not make worse. A line that the diff adds is in scope, also when it moved from another page, because a reader meets it on the new page.
 - Anything that a check of the pull request already reports. A prose linter usually checks wording, spelling and heading case. Other checks can compile, format or lint the examples. The project instructions list the checks of this repository.
 - Word choice, tone and phrasing preferences that no stated convention backs.
 - Deliberate tradeoffs with a stated reason. Check the PR description and the page before you flag one.
@@ -39,10 +40,11 @@ Check for:
 - **Behavior claims**: a statement about what the product does, when, or in what order, that the source contradicts. Read the implementation, not only its API documentation.
 - **Stale pages elsewhere**: other pages that the change makes wrong. Search the documentation for the API or the behavior that the change describes. A page that still states the old behavior now contradicts the new one.
 - **Broken references**: a cross reference, include or link whose target page, anchor, file or snippet tag does not exist.
+- **Instructions**: a required step, a "must" or a "write your own" that the source shows is unnecessary, or a condition that the source shows is wrong.
 
 Every accuracy finding must quote the statement and name the source that contradicts it. Give the file path and line of that source.
 
-The reference checkouts may not hold the source of a product. Then you cannot verify its claims. Report such a claim only when the page contradicts itself or another page.
+The reference checkouts may not hold the source of a product or a third-party library. Then you cannot verify its claims. Report such a claim only when the page contradicts itself or another page. Before a claim that depends on a version, read the version pins of this repository, such as `pom.xml`.
 
 ### Area 2: Clarity
 
@@ -57,6 +59,7 @@ Check for:
 - **Prose and example disagree**: the text describes one thing, and the example shows another.
 - **Buried point**: nested parentheticals, chained cross references or stacked qualifications hide the instruction or the fact that the reader needs.
 - **Off-topic content**: a section that does not answer the question in its heading. Also content for the reviewer of the change, such as how the product changed.
+- **Lost information**: the change removes a fact, a step or an example that a reader needs, and the link that replaces it does not hold it. Compare the removed lines with the link target.
 
 Every clarity finding must quote the passage. Name the concrete misreading, or the place where the reader gets stuck. "Could be clearer" is not a finding.
 
@@ -97,7 +100,7 @@ Before reporting, curate your findings. For each finding, in order:
 1. Write a `judgement` of two or three sentences. Say how the finding holds up now that the whole review is done. Does the evidence hold? Did you verify every factual claim in the source or on the page? Is the misreading realistic? What does the issue cost a reader if the PR merges as-is? When the case depends on a source file, a page or a section that you did not read, read it now, before you judge.
 2. Then classify its `value`, the cost of the underlying issue to a reader if the PR merges as-is:
    - `high`: verified wrong information. You confirmed in the source or on the page that a reader who follows the page gets a wrong result, a failing step or a false belief. Also a change that does not deliver what it claims.
-   - `medium`: a verified gap with no wrong information today. Examples are a likely misreading, a point where a reader gets stuck, a deprecated API in an example, a duplicate of an existing page, a broken stated convention, or another page that now contradicts the change. Also a wrong statement whose source you found but could not fully confirm. Say what remains unconfirmed.
+   - `medium`: a verified gap with no wrong information today. Examples are a likely misreading, a point where a reader gets stuck, a deprecated API in an example, a duplicate of an existing page, a broken stated convention, or another page that now contradicts the change. An accuracy finding is `medium` or `high` only when it names the source that contradicts the statement.
    - `low`: everything weaker. Examples are a key claim that you could not verify, a misreading that only a careless reader makes, a cosmetic issue, or a pre-existing condition that the change does not make worse. Also the same underlying issue as another finding. Name that finding in the judgement.
 
 Write the judgement before you choose the value. The judgement is the reasoning, and the value is the conclusion.
