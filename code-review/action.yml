@@ -59,6 +59,28 @@ inputs:
       Read/Grep/Glob/Bash, so only Bash entries have an effect.
     required: false
     default: ''
+  auto-approve:
+    description: >-
+      Set to 'true' to approve the pull request when the review has no
+      findings, its risk is at or below auto-approve-max-risk, and its title
+      has one of the auto-approve-types. Needs a profile that rates risk
+      ('code'), and a github-token that may approve pull requests.
+    required: false
+    default: 'false'
+  auto-approve-max-risk:
+    description: >-
+      The highest risk level that auto-approve accepts: 'low', 'medium' or
+      'high'.
+    required: false
+    default: 'low'
+  auto-approve-types:
+    description: >-
+      The conventional commit types of the pull request title that
+      auto-approve accepts, comma- or newline-separated. A title with a scope,
+      such as "chore(deps): …", matches its type. A breaking change ("chore!:")
+      never matches.
+    required: false
+    default: 'chore, docs, test'
   upload-execution-log:
     description: >-
       Set to 'true' to upload the full stream-json execution log as a workflow
@@ -107,6 +129,9 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.github-token }}
         FINDINGS_FILE: ${{ steps.review.outputs.findings-file }}
+        AUTO_APPROVE: ${{ inputs.auto-approve }}
+        AUTO_APPROVE_MAX_RISK: ${{ inputs.auto-approve-max-risk }}
+        AUTO_APPROVE_TYPES: ${{ inputs.auto-approve-types }}
       run: node "$GITHUB_ACTION_PATH/post-review.mjs" "${{ inputs.pr-number }}"
 
     - name: Summarize Claude session
