@@ -139,7 +139,7 @@ function writeOutput(name, value) {
 // Run one headless `claude` process: prompt on stdin, stream-json transcript
 // collected from stdout, stderr passed through to the job log. Enforces
 // SESSION_TIMEOUT_MS with SIGTERM, then SIGKILL after a grace period.
-function runClaude(prompt, { cwd, allowedTools, toolInstructions, schema, settings }) {
+function runClaude(prompt, { cwd, allowedTools, appendedSystemPrompt, schema, settings }) {
   const args = [
     '-p',
     '--output-format', 'stream-json',
@@ -147,7 +147,7 @@ function runClaude(prompt, { cwd, allowedTools, toolInstructions, schema, settin
     '--model', MODEL,
     '--tools', TOOLS,
     '--allowedTools', allowedTools,
-    '--append-system-prompt', toolInstructions,
+    '--append-system-prompt', appendedSystemPrompt,
     '--json-schema', JSON.stringify(schema),
   ];
   if (settings) args.push('--settings', settings);
@@ -296,7 +296,7 @@ async function main() {
   const run = await runClaude(prompt, {
     cwd: workspace,
     allowedTools,
-    toolInstructions: appendedSystemPrompt,
+    appendedSystemPrompt,
     schema,
     settings: process.env.SETTINGS || '',
   });
