@@ -57,6 +57,28 @@ The prompts ship with the action. A caller cannot pass a prompt file, so a
 pull request cannot change the prompt that reviews it. Pass
 repository-specific context with `extra-instructions`.
 
+## Auto-approval
+
+Set `auto-approve: 'true'` to let the action approve a pull request. The
+action approves only when all of these conditions are true:
+
+- The review posts no findings. Findings below the value bar do not block
+  the approval.
+- The risk is at or below `auto-approve-max-risk` (default `low`). Only the
+  `code` profile rates risk, so the `docs` profile never approves.
+- The conventional commit type of the PR title is one of
+  `auto-approve-types` (default `chore, docs, test`). A scope, such as
+  `chore(deps):`, is permitted. A breaking change, such as `chore!:`, never
+  matches.
+- The PR head is still the commit that the review read.
+
+The approval replaces the "nothing to flag" comment review, and adds a note
+that it was automatic. The `github-token` must be allowed to approve pull
+requests. For `github.token`, enable "Allow GitHub Actions to create and
+approve pull requests" in the repository settings. A token cannot approve a
+pull request that its own identity opened. When GitHub refuses the approval,
+the action posts the review as a comment and logs a warning.
+
 ## Tuning
 
 Deliberately hard-coded, each a one-line edit:
@@ -91,6 +113,9 @@ The job needs `pull-requests: write` (post the review) and `issues: write`
 | `github-token` | no | `github.token` | Token used to prepare the review inputs (including fetching the merge-base commit, so it needs read access to private repositories) and post the review; its identity is the review author. Pass a bot token to post under a bot identity. |
 | `reference-repos` | no | `''` | Upstream repositories to clone as read-only context, one `owner/repo \| description` per line. |
 | `extra-instructions` | no | `''` | Repository-specific review instructions, appended to the system prompt. |
+| `auto-approve` | no | `'false'` | Set `'true'` to approve pull requests that meet the conditions in [Auto-approval](#auto-approval). |
+| `auto-approve-max-risk` | no | `low` | The highest risk that auto-approval accepts: `low`, `medium` or `high`. |
+| `auto-approve-types` | no | `chore, docs, test` | The conventional commit types of the PR title that auto-approval accepts, comma- or newline-separated. |
 | `upload-execution-log` | no | `'false'` | Set `'true'` to upload the full execution log as an artifact (world-readable on public repositories). Typically wired to `vars.CLAUDE_DEBUG`. |
 
 ## Artifacts

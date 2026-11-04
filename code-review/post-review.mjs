@@ -17,6 +17,12 @@
  * Posting uses the GraphQL pending-review flow so all threads and the summary
  * are posted as one review (single notification).
  *
+ * With AUTO_APPROVE, a review without findings approves the PR instead of
+ * commenting, when the risk is at or below AUTO_APPROVE_MAX_RISK, the title
+ * has one of AUTO_APPROVE_TYPES, and the PR head is still the reviewed commit.
+ * When GitHub refuses the approval (the token may not approve, or it belongs
+ * to the PR author), the review posts as a comment instead.
+ *
  * Reads from the environment (set by GitHub Actions):
  *   PR_NUMBER / argv[2]  pull request number reviewed
  *   FINDINGS_FILE        findings JSON written by run-review.mjs
@@ -26,6 +32,13 @@
  *   GITHUB_REPOSITORY    owner/repo
  *   GH_TOKEN             token for the gh CLI; its identity is the review
  *                        author
+ *   GITHUB_WORKSPACE     the reviewed PR head checkout; its HEAD is the
+ *                        reviewed commit
+ *   AUTO_APPROVE         'true' to approve PRs that meet the conditions
+ *   AUTO_APPROVE_MAX_RISK  highest accepted risk level; default 'low'
+ *   AUTO_APPROVE_TYPES   accepted conventional commit types of the title,
+ *                        comma- or newline-separated; default
+ *                        'chore, docs, test'
  *   DRY_RUN              if set, print the routing and rendered bodies and
  *                        exit without calling the GitHub API
  *
@@ -35,6 +48,7 @@
 
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 const MAX_BUFFER = 100 * 1024 * 1024;
 
@@ -46,12 +60,14 @@ function capture(file, args) {
   });
 }
 
+function fail(msg) {
+  console.error(msg);
+  process.exit(2);
+}
+
 function requireEnv(name) {
   const value = process.env[name];
-  if (!value) {
-    console.error(`${name} must be set`);
-    process.exit(2);
-  }
+  if (!value) fail(`${name} must be set`);
   return value;
 }
 
@@ -191,6 +207,59 @@ function riskLine(risk) {
   return reason ? `${level} — ${reason}` : level;
 }
 
+// --- Auto-approval ----------------------------------------------------------
+
+const RISK_RANK = { low: 1, medium: 2, high: 3 };
+
+// The conventional commit type of a PR title, and whether it marks a breaking
+// change: "chore: …", "chore(deps): …", "chore!: …".
+const TITLE_TYPE = /^(\w+)(?:\([^)]*\))?(!)?:/;
+
+// The auto-approve settings from the environment, or null when it is off.
+export function approvalConfig(env) {
+  if ((env.AUTO_APPROVE || '').trim() !== 'true') return null;
+  const maxRisk = (env.AUTO_APPROVE_MAX_RISK || 'low').trim();
+  if (!Object.hasOwn(RISK_RANK, maxRisk)) {
+    throw new Error(
+      `Unknown auto-approve-max-risk "${maxRisk}". Expected one of: ${Object.keys(RISK_RANK).join(', ')}.`
+    );
+  }
+  const types = (env.AUTO_APPROVE_TYPES || 'chore, docs, test')
+    .split(/[\n,]/)
+    .map((type) => type.trim().replace(/:$/, '').toLowerCase())
+    .filter(Boolean);
+  return { maxRisk, types };
+}
+
+// Why the PR is not approved, or null when every condition holds.
+export function approvalBlocker({ findings, risk, title, maxRisk, types }) {
+  if (findings.length) return `the review has ${pluralize(findings.length, 'finding')}`;
+  if (!risk) return 'the review rated no risk';
+  if (!(RISK_RANK[risk.level] <= RISK_RANK[maxRisk])) {
+    return `the risk ${risk.level} is above ${maxRisk}`;
+  }
+  const match = TITLE_TYPE.exec(title || '');
+  if (!match) return 'the title has no conventional commit type';
+  if (match[2]) return 'the title marks a breaking change';
+  const type = match[1].toLowerCase();
+  if (!types.includes(type)) return `the type ${type} is not one of ${types.join(', ')}`;
+  return null;
+}
+
+function approvalNote(risk, title) {
+  const type = TITLE_TYPE.exec(title)[1].toLowerCase();
+  return `_Approved automatically: a \`${type}\` change with ${risk.level} risk and no findings._`;
+}
+
+// The commit of the PR head checkout that the review read.
+function reviewedSha() {
+  try {
+    return capture('git', ['-C', process.env.GITHUB_WORKSPACE || '.', 'rev-parse', 'HEAD']).trim();
+  } catch {
+    return null;
+  }
+}
+
 // Summary body: overview line, then the risk of the change, then the table
 // over all findings, then the full prose of the findings whose inline
 // anchoring failed (visible, not collapsed) — commented findings keep their
@@ -215,6 +284,7 @@ const PR_QUERY = `query($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
       id
+      title
       headRefOid
       reviews(states: PENDING, first: 10) { nodes { id } }
     }
@@ -238,6 +308,12 @@ const ADD_PENDING = `mutation($prId: ID!) {
 
 const ADD_BODY_ONLY = `mutation($prId: ID!, $body: String!) {
   addPullRequestReview(input: {pullRequestId: $prId, event: COMMENT, body: $body}) {
+    pullRequestReview { url author { login } }
+  }
+}`;
+
+const APPROVE_BODY_ONLY = `mutation($prId: ID!, $commit: GitObjectID!, $body: String!) {
+  addPullRequestReview(input: {pullRequestId: $prId, commitOID: $commit, event: APPROVE, body: $body}) {
     pullRequestReview { url author { login } }
   }
 }`;
@@ -309,6 +385,12 @@ function main() {
   }
   const repo = requireEnv('GITHUB_REPOSITORY');
   const findingsFile = requireEnv('FINDINGS_FILE');
+  let approval;
+  try {
+    approval = approvalConfig(process.env);
+  } catch (err) {
+    fail(err.message);
+  }
 
   const report = JSON.parse(fs.readFileSync(findingsFile, 'utf8'));
   const findings = report.findings.map(normalize);
@@ -333,8 +415,28 @@ function main() {
     graphql(DELETE_PENDING, { reviewId: stale.id });
   }
 
+  let approve = false;
+  if (approval) {
+    let blocker = approvalBlocker({ findings, risk, title: pr.title, ...approval });
+    if (!blocker && reviewedSha() !== pr.headRefOid) {
+      blocker = 'the PR head is no longer the reviewed commit';
+    }
+    approve = !blocker;
+    console.log(approve ? 'Auto-approve: approving' : `Auto-approve: skipped, ${blocker}`);
+  }
+
   if (!findings.length) {
     const body = summaryBody(repo, pr.headRefOid, [], [], 0, risk);
+    if (approve) {
+      try {
+        const approveBody = `${body}\n\n${approvalNote(risk, pr.title)}`;
+        const result = graphql(APPROVE_BODY_ONLY, { prId: pr.id, commit: pr.headRefOid, body: approveBody });
+        logPosted(result.addPullRequestReview.pullRequestReview);
+        return;
+      } catch {
+        console.log('::warning::Auto-approve: GitHub refused the approval, posting the review as a comment');
+      }
+    }
     const result = graphql(ADD_BODY_ONLY, { prId: pr.id, body });
     logPosted(result.addPullRequestReview.pullRequestReview);
     return;
@@ -358,4 +460,7 @@ function main() {
   logPosted(result.submitPullRequestReview.pullRequestReview);
 }
 
-main();
+// Run only as a script, not when the tests import the approval functions.
+if (import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
+  main();
+}
