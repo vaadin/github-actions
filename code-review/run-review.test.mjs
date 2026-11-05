@@ -11,8 +11,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.join(HERE, 'run-review.mjs');
 const INPUTS = '- **Diff**: `/tmp/pr-review/pr.diff`';
 
-// Runs run-review.mjs against a stub `claude` that records the prompt it
-// receives on stdin and reports no findings.
+// Runs run-review.mjs against a stub `claude` that records its arguments and
+// the prompt it receives on stdin, and reports no findings.
 function runReview(profile) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-review-'));
   fs.mkdirSync(path.join(dir, 'pr-review'));
@@ -20,9 +20,10 @@ function runReview(profile) {
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin);
   const promptFile = path.join(dir, 'prompt.md');
+  const argsFile = path.join(dir, 'args');
   fs.writeFileSync(
     path.join(bin, 'claude'),
-    `#!/bin/sh\ncat > '${promptFile}'\n` +
+    `#!/bin/sh\nprintf '%s\\0' "$@" > '${argsFile}'\ncat > '${promptFile}'\n` +
       `echo '{"type":"result","structured_output":{"findings":[]}}'\n`,
     { mode: 0o755 }
   );
@@ -38,8 +39,17 @@ function runReview(profile) {
   if (profile !== undefined) env.PROFILE = profile;
   const result = spawnSync(process.execPath, [SCRIPT], { env, encoding: 'utf8' });
   const prompt = fs.existsSync(promptFile) ? fs.readFileSync(promptFile, 'utf8') : null;
+  const args = fs.existsSync(argsFile)
+    ? fs.readFileSync(argsFile, 'utf8').split('\0').slice(0, -1)
+    : null;
   fs.rmSync(dir, { recursive: true, force: true });
-  return { ...result, prompt };
+  return { ...result, prompt, args };
+}
+
+// The value of a `--flag value` pair in the recorded arguments, or undefined.
+function argValue(args, flag) {
+  const index = args.indexOf(flag);
+  return index === -1 ? undefined : args[index + 1];
 }
 
 function promptTemplate(file) {
@@ -70,4 +80,13 @@ test('fails on an unknown profile before starting a session', () => {
     assert.match(stderr, /Unknown review profile .*Expected one of: code, docs\./);
     assert.strictEqual(prompt, null, `profile ${profile}`);
   }
+});
+
+test('offers only research tools and advertises the read-only commands', () => {
+  const { status, stderr, args } = runReview();
+  assert.strictEqual(status, 0, stderr);
+  assert.strictEqual(argValue(args, '--tools'), 'Read,Grep,Glob,Bash');
+  const toolInstructions = argValue(args, '--append-system-prompt');
+  assert.ok(!toolInstructions.includes('{{BASH_COMMANDS}}'));
+  assert.match(toolInstructions, /\n {4}ls, cat, .*sed -n.*\n/);
 });
