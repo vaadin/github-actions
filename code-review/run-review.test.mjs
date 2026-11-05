@@ -85,6 +85,15 @@ test('fails on an unknown profile before starting a session', () => {
   }
 });
 
+test('offers only research tools and advertises the read-only commands', () => {
+  const { status, stderr, args } = runReview();
+  assert.strictEqual(status, 0, stderr);
+  assert.strictEqual(argValue(args, '--tools'), 'Read,Grep,Glob,Bash');
+  const toolInstructions = argValue(args, '--append-system-prompt');
+  assert.ok(!toolInstructions.includes('{{BASH_COMMANDS}}'));
+  assert.match(toolInstructions, /\n {4}ls, cat, .*sed -n.*\n/);
+});
+
 test('appends the generated instructions after the tool instructions', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'instructions-'));
   const file = path.join(dir, 'claude-instructions.md');

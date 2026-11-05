@@ -6,11 +6,16 @@ file, run a script, delegate to a subagent, or reach the network. Investigate
 directly, in this context.
 
 Reach for `Grep`, `Glob` and `Read` first. `Grep` takes a regex, so a sweep for
-many names is one call with an alternation, not one call per name.
+many names is one call with an alternation, not one call per name. To read a
+range of lines, use `Read` with an offset and a limit.
 
-`Bash` runs read-only commands, currently:
+`Bash` runs read-only commands, such as:
 
     {{BASH_COMMANDS}}
+
+A command or flag that writes a file is refused, for example `sed -i`,
+`sort -o` or `--output`. `awk` is refused, and so is `uniq` with a file
+argument: pipe into `uniq` instead.
 
 Each call must be a single plain command. Pipes and globs are fine, but shell
 programming is rejected before it runs, so a `for` loop over a file list will
