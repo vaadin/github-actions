@@ -12,8 +12,9 @@ const SCRIPT = path.join(HERE, 'run-review.mjs');
 const INPUTS = '- **Diff**: `/tmp/pr-review/pr.diff`';
 
 // Runs run-review.mjs against a stub `claude` that records its arguments and
-// the prompt it receives on stdin, and reports no findings.
-function runReview(profile) {
+// the prompt it receives on stdin, and reports no findings. `extraEnv` adds
+// environment variables.
+function runReview(profile, extraEnv = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-review-'));
   fs.mkdirSync(path.join(dir, 'pr-review'));
   fs.writeFileSync(path.join(dir, 'pr-review', 'review-inputs.md'), INPUTS);
@@ -32,10 +33,12 @@ function runReview(profile) {
     PATH: `${bin}${path.delimiter}${process.env.PATH}`,
     RUNNER_TEMP: dir,
     GITHUB_WORKSPACE: dir,
+    ...extraEnv,
   };
   delete env.GITHUB_OUTPUT;
   delete env.PROFILE;
   delete env.SETTINGS;
+  if (!('INSTRUCTIONS_FILE' in extraEnv)) delete env.INSTRUCTIONS_FILE;
   if (profile !== undefined) env.PROFILE = profile;
   const result = spawnSync(process.execPath, [SCRIPT], { env, encoding: 'utf8' });
   const prompt = fs.existsSync(promptFile) ? fs.readFileSync(promptFile, 'utf8') : null;
@@ -89,4 +92,26 @@ test('offers only research tools and advertises the read-only commands', () => {
   const toolInstructions = argValue(args, '--append-system-prompt');
   assert.ok(!toolInstructions.includes('{{BASH_COMMANDS}}'));
   assert.match(toolInstructions, /\n {4}ls, cat, .*sed -n.*\n/);
+});
+
+test('appends the generated instructions after the tool instructions', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'instructions-'));
+  const file = path.join(dir, 'claude-instructions.md');
+  const instructions = '# Reference checkouts\n\nSee flow.\n';
+  fs.writeFileSync(file, instructions);
+  const withFile = runReview(undefined, { INSTRUCTIONS_FILE: file });
+  fs.rmSync(dir, { recursive: true, force: true });
+  assert.strictEqual(withFile.status, 0, withFile.stderr);
+
+  for (const extraEnv of [{}, { INSTRUCTIONS_FILE: '' }]) {
+    const without = runReview(undefined, extraEnv);
+    assert.strictEqual(without.status, 0, without.stderr);
+    const toolInstructions = argValue(without.args, '--append-system-prompt');
+    assert.match(toolInstructions, /^## Tools and shell constraints\n/);
+    assert.ok(!toolInstructions.includes('# Reference checkouts'));
+    assert.strictEqual(
+      argValue(withFile.args, '--append-system-prompt'),
+      `${toolInstructions}\n\n${instructions}`
+    );
+  }
 });

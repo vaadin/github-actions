@@ -40,14 +40,15 @@ inputs:
       Optional upstream repositories to provide as read-only context, one per
       line in the form "owner/repo | description". Each repository is shallowly
       cloned, added as an additional working directory, and described to Claude
-      in injected project instructions (using the description verbatim).
+      in the instructions appended to the system prompt (using the
+      description verbatim).
     required: false
     default: ''
   extra-instructions:
     description: >-
-      Repository-specific review instructions, appended after the generated
-      reference checkout section. Injected as project instructions
-      (CLAUDE.local.md).
+      Repository-specific review instructions. They follow the generated
+      reference checkout section in the instructions appended to the system
+      prompt.
     required: false
     default: ''
   upload-execution-log:
@@ -90,6 +91,7 @@ runs:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         SETTINGS: ${{ steps.prepare.outputs.settings }}
         PROFILE: ${{ inputs.profile }}
+        INSTRUCTIONS_FILE: ${{ steps.prepare.outputs.instructions_file }}
       run: node "$GITHUB_ACTION_PATH/run-review.mjs"
 
     - name: Post review

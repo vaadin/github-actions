@@ -32,6 +32,9 @@
  *                        lib/claude-prepare.mjs (carries additionalDirectories)
  *   PROFILE              review profile, a key of PROFILE_PROMPTS; default
  *                        'code'
+ *   INSTRUCTIONS_FILE    optional generated instructions (reference checkouts,
+ *                        extra-instructions), produced by
+ *                        lib/claude-prepare.mjs; appended to the system prompt
  *
  * Produces under $RUNNER_TEMP/review-output:
  *   transcript.jsonl     the session's stream-json transcript (execution log)
@@ -119,14 +122,14 @@ function writeOutput(name, value) {
 // Run one headless `claude` process: prompt on stdin, stream-json transcript
 // collected from stdout, stderr passed through to the job log. Enforces
 // SESSION_TIMEOUT_MS with SIGTERM, then SIGKILL after a grace period.
-function runClaude(prompt, { cwd, toolInstructions, schema, settings }) {
+function runClaude(prompt, { cwd, appendedSystemPrompt, schema, settings }) {
   const args = [
     '-p',
     '--output-format', 'stream-json',
     '--verbose', // required for stream-json in --print mode
     '--model', MODEL,
     '--tools', TOOLS,
-    '--append-system-prompt', toolInstructions,
+    '--append-system-prompt', appendedSystemPrompt,
     '--json-schema', JSON.stringify(schema),
   ];
   if (settings) args.push('--settings', settings);
@@ -256,13 +259,20 @@ async function main() {
   const toolInstructions = fs
     .readFileSync(path.join(HERE, 'prompts', '_tools.md'), 'utf8')
     .replaceAll('{{BASH_COMMANDS}}', BASH_COMMANDS.join(', '));
+  // The generated instructions follow the tool instructions in the appended
+  // system prompt.
+  const instructionsFile = process.env.INSTRUCTIONS_FILE;
+  const appendedSystemPrompt = [
+    toolInstructions,
+    ...(instructionsFile ? [fs.readFileSync(instructionsFile, 'utf8')] : []),
+  ].join('\n\n');
   const schema = JSON.parse(
     fs.readFileSync(path.join(HERE, 'review-schema.json'), 'utf8')
   );
 
   const run = await runClaude(prompt, {
     cwd: workspace,
-    toolInstructions,
+    appendedSystemPrompt,
     schema,
     settings: process.env.SETTINGS || '',
   });
