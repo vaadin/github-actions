@@ -50,16 +50,6 @@ inputs:
       (CLAUDE.local.md).
     required: false
     default: ''
-  extra-allowed-tools:
-    description: >-
-      Repository-specific allow rules for read-only Bash commands that Claude
-      Code does not approve on its own. The action passes no other allow
-      rule. A "Bash(<command>:*)" rule admits every flag of the command, so
-      prefer an exact command, e.g. "Bash(mvn dependency:tree)". Comma- or
-      newline-separated entries in --allowedTools syntax. Note the model is
-      only offered Read/Grep/Glob/Bash, so only Bash entries have an effect.
-    required: false
-    default: ''
   upload-execution-log:
     description: >-
       Set to 'true' to upload the full stream-json execution log as a workflow
@@ -99,7 +89,6 @@ runs:
       env:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         SETTINGS: ${{ steps.prepare.outputs.settings }}
-        EXTRA_ALLOWED_TOOLS: ${{ inputs.extra-allowed-tools }}
         PROFILE: ${{ inputs.profile }}
       run: node "$GITHUB_ACTION_PATH/run-review.mjs"
 

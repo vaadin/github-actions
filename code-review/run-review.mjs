@@ -30,9 +30,6 @@
  *   ANTHROPIC_API_KEY    inherited by the claude process (bills the review)
  *   SETTINGS             optional settings JSON for --settings, produced by
  *                        lib/claude-prepare.mjs (carries additionalDirectories)
- *   EXTRA_ALLOWED_TOOLS  optional repository-specific --allowedTools rules,
- *                        comma- or newline-separated; the only allow rules
- *                        the session gets
  *   PROFILE              review profile, a key of PROFILE_PROMPTS; default
  *                        'code'
  *
@@ -76,21 +73,9 @@ const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 // read-only claim is true at the model layer.
 const TOOLS = 'Read,Grep,Glob,Bash';
 
-// The Bash commands advertised to the agent in prompts/_tools.md. The action
-// passes no Bash allow rule: Claude Code approves a read-only command on its
-// own and checks its flags and paths, so it refuses `sed -i`, `sort -o`,
-// `git diff --output`, `git diff --ext-diff`, `rg --pre`, `find -delete`,
-// output redirection and reads outside the working directories. A
-// `Bash(<command>:*)` prefix rule would admit every flag of its command,
-// including the ones that write a file.
-//
-// Every command below runs without an allow rule on the Claude Code version
-// pinned in action.yml (`uniq` only at the end of a pipe: with a file
-// argument it needs approval). Check the list again when that version changes.
-// `git log` and `git blame` run too but are left out: the checkout is shallow,
-// so they would show one commit and blame every line on it. `git diff` is
-// left out because the prompts tell the agent not to compute its own diff;
-// plain `diff` covers comparing the head and merge-base checkouts.
+// The Bash commands advertised to the agent in prompts/_tools.md. The session
+// gets no allow rules, so Bash relies on the default permission mode of
+// Claude Code, which runs only read-only commands in a headless session.
 const BASH_COMMANDS = [
   'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'rg', 'find',
   'sed -n', 'sort', 'uniq', 'cut', 'tr', 'comm', 'diff', 'basename',
@@ -121,14 +106,6 @@ function requireEnv(name) {
   return value;
 }
 
-// Normalize a comma- or newline-separated tool list, dropping empty entries.
-function parseToolList(raw) {
-  return (raw || '')
-    .split(/[\n,]/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
 // Write a step output ($GITHUB_OUTPUT), or print it when run locally. All
 // values here are file paths — single-line, no delimiter games needed.
 function writeOutput(name, value) {
@@ -142,7 +119,7 @@ function writeOutput(name, value) {
 // Run one headless `claude` process: prompt on stdin, stream-json transcript
 // collected from stdout, stderr passed through to the job log. Enforces
 // SESSION_TIMEOUT_MS with SIGTERM, then SIGKILL after a grace period.
-function runClaude(prompt, { cwd, allowedTools, toolInstructions, schema, settings }) {
+function runClaude(prompt, { cwd, toolInstructions, schema, settings }) {
   const args = [
     '-p',
     '--output-format', 'stream-json',
@@ -152,7 +129,6 @@ function runClaude(prompt, { cwd, allowedTools, toolInstructions, schema, settin
     '--append-system-prompt', toolInstructions,
     '--json-schema', JSON.stringify(schema),
   ];
-  if (allowedTools) args.push('--allowedTools', allowedTools);
   if (settings) args.push('--settings', settings);
 
   return new Promise((resolve, reject) => {
@@ -284,11 +260,8 @@ async function main() {
     fs.readFileSync(path.join(HERE, 'review-schema.json'), 'utf8')
   );
 
-  const allowedTools = parseToolList(process.env.EXTRA_ALLOWED_TOOLS).join(',');
-
   const run = await runClaude(prompt, {
     cwd: workspace,
-    allowedTools,
     toolInstructions,
     schema,
     settings: process.env.SETTINGS || '',
