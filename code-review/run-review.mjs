@@ -59,7 +59,7 @@ import { fileURLToPath } from 'node:url';
 
 // The session's model, passed as an explicit ID so the pinned Claude Code
 // version (see action.yml) can move independently of the model.
-const MODEL = 'claude-opus-5';
+const MODEL = 'claude-opus-5-5';
 
 // The minimum value tier a finding needs to be posted to the PR. The prompt
 // never mentions it: the agent classifies, this script selects. 'medium'
