@@ -61,6 +61,11 @@ import { fileURLToPath } from 'node:url';
 // version (see action.yml) can move independently of the model.
 const MODEL = 'claude-opus-5-5';
 
+// The session's effort level, passed explicitly because the default effort
+// depends on the model: a model switch must not silently change how much
+// work the review does.
+const EFFORT = 'high';
+
 // The minimum value tier a finding needs to be posted to the PR. The prompt
 // never mentions it: the agent classifies, this script selects. 'medium'
 // posts high+medium; 'high' posts high only; 'low' posts everything.
@@ -128,6 +133,7 @@ function runClaude(prompt, { cwd, appendedSystemPrompt, schema, settings }) {
     '--output-format', 'stream-json',
     '--verbose', // required for stream-json in --print mode
     '--model', MODEL,
+    '--effort', EFFORT,
     '--tools', TOOLS,
     '--append-system-prompt', appendedSystemPrompt,
     '--json-schema', JSON.stringify(schema),
@@ -270,6 +276,7 @@ async function main() {
     fs.readFileSync(path.join(HERE, 'review-schema.json'), 'utf8')
   );
 
+  console.log(`Starting the review session: model ${MODEL}, effort ${EFFORT}.`);
   const run = await runClaude(prompt, {
     cwd: workspace,
     appendedSystemPrompt,
