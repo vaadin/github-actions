@@ -237,7 +237,7 @@ function shownLines(lines) {
   return out;
 }
 
-// The code references of one block of a slide: {path, file, from, to, lines, shown, ctx, caption, where}.
+// The code references of one block of a slide: {path, file, from, to, lines, shown, ctx, where}.
 // `lines` is the range with one "..." per skipped range, indented like the first skipped line that is not
 // blank; `shown` is what the deck shows (see shownLines); both are null when the file is missing.
 function planRefs(work, block) {
@@ -250,7 +250,6 @@ function planRefs(work, block) {
     const ref = {
       path, file: repoPath(path), from: a, to: b, lines: null, shown: null,
       ctx: tail.includes('(context)'),
-      caption: (/\(caption:\s*"([^"]*)"\)/.exec(tail) || [])[1],
       where: ((/\(in:\s*([^)]*)\)/.exec(tail) || [])[1] || '').trim(),
     };
     refs.push(ref);
@@ -528,7 +527,6 @@ function sideChunks(refs) {
   for (const r of refs) indent[r.file] = Math.min(indent[r.file] ?? Infinity, minIndent(r.shown || []));
   return refs.map((r) => {
     const c = { code: stripIndent(r.shown || [], indent[r.file]).join('\n'), file: r.file };
-    if (r.caption) c.caption = r.caption;
     if (r.ctx) c.context = true;
     return c;
   });

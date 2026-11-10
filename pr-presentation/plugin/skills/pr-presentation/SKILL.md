@@ -191,7 +191,7 @@ Tips:
 - `selected.cloneNode(true)` (after): Suspected bug (Q3): the copy keeps the item's `id`, so two elements share it.
 ````
 
-- A code reference is `src/base/...` (old code) or `src/head/...` (new code), with lines and optional skips. A skipped range shows as one `...` line. Add `(context)` for unchanged code, `(caption: "...")` for a heading.
+- A code reference is `src/base/...` (old code) or `src/head/...` (new code), with lines and optional skips. A skipped range shows as one `...` line. Add `(context)` for unchanged code.
 - `Before:` is the left side, for old code. `After:` is the right side, for new code.
 - `Introduces:` lists the new things of the slide. A concept without a name is `idea: ...`.
 - A tip key is exact text from the code on that side: a name, a call or a full line. `name@2` is the second occurrence. `(both)`, `(before)` and `(after)` tell the side.
