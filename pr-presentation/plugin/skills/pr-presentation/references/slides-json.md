@@ -30,7 +30,7 @@
       "text": "One sentence: how the change removes the cause.",
       "introduces": [],
       "before": [{"code": "..."}],
-      "after": [{"code": "...", "caption": "Optional heading"}],
+      "after": [{"code": "..."}],
       "afterTips": {"itemElement.removeAttribute('selected');": "..."}
     }
   ]
@@ -55,10 +55,9 @@
 
 ## Panes and chunks
 
-- A pane is a string or a list of chunks. A chunk is a string or `{"code", "file", "caption", "context"}`.
+- A pane is a string or a list of chunks. A chunk is a string or `{"code", "file", "context"}`.
 - `file` is the path of the chunk's file in the repo, such as `packages/date-picker/src/vaadin-month-calendar.js`. The page shows it above the chunk.
 - `"context": true` marks unchanged code. The page shows the context of both sides in one gray pane below the changed code, across the two columns. The same code is shown one time. A side with only context gets no column: the changed code of the other side takes the full width. A slide with only context shows it at the normal size.
-- `caption` is a short heading above a chunk.
 - `...` marks skipped code: a line of its own, or in place of arguments.
 - A line too long for its pane wraps after `(`, `,`, `.`, `[` or `{`, or at a space, never inside a name, and its next rows are indented two levels deeper.
 - `hunks.mjs build` writes the code of a line range without comment lines, with one `...` line per skipped range indented like the skipped code, and with the smallest indentation of all chunks of the same file on that side removed.

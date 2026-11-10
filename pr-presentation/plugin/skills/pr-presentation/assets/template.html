@@ -148,7 +148,7 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
 .side.after > .label { background: var(--after-tag); color: var(--after-tag-ink); }
 .side.ctx > .label { top: 11px; right: 16px; background: var(--ctx-tag); color: var(--ctx-tag-ink); }
 
-/* Chunks: a caption row (file path, caption, tag), then the lines */
+/* Chunks: a caption row (file path, tag), then the lines */
 .side > .chunk.new-file { margin-top: 16px; }
 .chunk .cap { font-size: var(--fs-small); color: var(--muted); margin-bottom: 4px; display: flex; gap: 8px; align-items: baseline; }
 /* Small labels: file paths and step methods in code; pane tags and the recap tag in uppercase */
@@ -370,7 +370,7 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
       if (faded !== !!(b.context || b.recap)) break;
       var la = withMemberGaps(textLines(a.code)), lb = withMemberGaps(textLines(b.code)), d = diffRows(la, lb);
       if (!d.similar) break;
-      var cap = !!(a.caption || b.caption || a.recap || b.recap || a.showFile || b.showFile);
+      var cap = !!(a.recap || b.recap || a.showFile || b.showFile);
       // A new file on either side spaces both sides, so the rows stay level
       var newFile = k > 0 && !!(a.showFile || b.showFile);
       // Blank lines and "..." gaps inside a changed block stay unmarked, so the marks show only real code
@@ -531,8 +531,8 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
       // A chunk that starts another file below an earlier chunk gets more space above it
       var newFile = (plan ? plan.newFile : c.showFile) && !!side.querySelector('.chunk');
       var node = el('div', 'chunk' + (c.recap ? ' recap' : '') + (newFile ? ' new-file' : ''));
-      if (c.caption || c.recap || c.showFile || (plan && plan.cap)) {
-        var cap = el('div', 'cap', c.caption || (c.showFile ? null : '\u00a0'));
+      if (c.recap || c.showFile || (plan && plan.cap)) {
+        var cap = el('div', 'cap', c.showFile ? null : '\u00a0');
         if (c.showFile) { var f = el('span', 'file', c.file); f.title = c.file; cap.insertBefore(f, cap.firstChild); }
         if (c.recap) cap.appendChild(el('span', 'tag', c.recap === 'above' ? 'from above' : 'shown earlier'));
         if (plan) cap.dataset.row = k + ':cap';

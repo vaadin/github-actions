@@ -18,7 +18,7 @@ import { parseArgs } from 'node:util';
 const ASSETS = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets');
 const TEMPLATE = join(ASSETS, 'template.html');
 
-const CHUNK_KEYS = new Set(['code', 'caption', 'context', 'file']);
+const CHUNK_KEYS = new Set(['code', 'context', 'file']);
 const OPEN_KINDS = ['Suspected bug', 'Unexplained'];
 const GAP_RE = /(?<![\w$.])\.\.\.(?![\w$.])/;
 
