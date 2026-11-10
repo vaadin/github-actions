@@ -13,10 +13,13 @@
 // of its remotes is the PR's repository. The worktrees share its objects.
 //
 // Writes:
-//   pr.json             gh pr view (metadata, linked issues, commits) plus root, remote and mergeBaseOid
+//   pr.json             gh pr view (metadata, linked issues) plus root, remote and mergeBaseOid
 //   pr.diff             git diff <merge base> <head>, the same diff that GitHub shows; `hunks.mjs split` numbers its hunks
 //   src/base, src/head  detached git worktrees at the merge base and at the PR head
-//   context.md          PR description, linked and related issues, commits, conversation and review comments
+//   issues.md           the issues that the PR links, and the issues that its description refers to
+//
+// The PR description, the commit messages and the comments are not written: the investigation must not read
+// what the author says about the change.
 //
 // --clean removes the two worktrees and keeps the other files. Each run also prunes the registrations of
 // worktrees whose folder is gone, so a deleted scratchpad leaves nothing behind in the checkout.
@@ -26,7 +29,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
-const FIELDS = 'number,title,url,headRefOid,baseRefOid,baseRefName,headRefName,author,body,closingIssuesReferences,commits,comments,reviews,labels';
+const FIELDS = 'number,title,url,headRefOid,baseRefOid,baseRefName,headRefName,author,body,closingIssuesReferences,labels';
 const REMOTE_RE = /github\.com[:/]([^/\s]+\/[^/\s]+?)(?:\.git)?\/?$/i;
 
 const isFile = (p) => existsSync(p) && statSync(p).isFile();
@@ -119,7 +122,8 @@ function collect(a) {
 
   const raw = gh('pr', 'view', a.pr, ...repoArgs, '--json', FIELDS);
   if (raw === null) process.exit(1);
-  const pr = JSON.parse(raw);
+  // The description only tells which issues to collect. It stays out of pr.json.
+  const { body, ...pr } = JSON.parse(raw);
   const repo = pr.url.split('/').slice(3, 5).join('/');
   const { number: n, headRefOid: head, baseRefName: baseBranch } = pr;
 
@@ -145,9 +149,7 @@ function collect(a) {
   if (diff === null) process.exit(1);
   writeFileSync(join(out, 'pr.diff'), diff);
 
-  const md = [`# PR #${pr.number}: ${pr.title}`, '',
-    `${pr.url} by ${pr.author.login}, ${pr.headRefName} -> ${pr.baseRefName}`,
-    '', '## Description', '', pr.body || '(empty)', ''];
+  const md = [];
   for (const ref of pr.closingIssuesReferences || []) {
     const issue = gh('issue', 'view', String(ref.number), '--repo', `${ref.repository.owner.login}/${ref.repository.name}`,
       '--json', 'number,title,body,comments');
@@ -158,8 +160,8 @@ function collect(a) {
   }
   // Issues the description refers to, so the investigation can read them without reading the description
   const closing = new Set((pr.closingIssuesReferences || []).map((ref) => ref.number));
-  const body = pr.body || '';
-  const refs = [...body.matchAll(/(?<![\w/])#(\d+)\b/g), ...body.matchAll(new RegExp(`github\\.com/${escapeRe(repo)}/issues/(\\d+)`, 'g'))].map((m) => Number(m[1]));
+  const text = body || '';
+  const refs = [...text.matchAll(/(?<![\w/])#(\d+)\b/g), ...text.matchAll(new RegExp(`github\\.com/${escapeRe(repo)}/issues/(\\d+)`, 'g'))].map((m) => Number(m[1]));
   for (const k of new Set(refs)) {
     if (closing.has(k) || k === pr.number) continue;
     const issue = gh('issue', 'view', String(k), '--repo', repo, '--json', 'number,title,body,state,comments');
@@ -168,16 +170,7 @@ function collect(a) {
       md.push(`## Related issue #${i.number} (${i.state.toLowerCase()}): ${i.title}`, '', i.body || '', '', ...comments(i.comments));
     }
   }
-  md.push('## Commits', '', ...(pr.commits || []).map((c) => `- ${c.messageHeadline}` + (c.messageBody ? `\n  ${c.messageBody}` : '')), '');
-  const talk = comments(pr.comments);
-  talk.push(...(pr.reviews || []).filter((r) => r.body).map((r) => `**${r.author.login} (${r.state.toLowerCase()}):** ${r.body}\n`));
-  // --slurp puts the pages of the review comments into one array of arrays
-  const review = gh('api', `repos/${repo}/pulls/${pr.number}/comments`, '--paginate', '--slurp');
-  for (const c of review ? JSON.parse(review).flat() : []) {
-    talk.push(`**${c.user.login}** on \`${c.path}\`:\n\`\`\`\n${(c.diff_hunk || '').slice(-400)}\n\`\`\`\n${c.body}\n`);
-  }
-  md.push('## Conversation and review comments', '', ...(talk.length ? talk : ['(none)']));
-  writeFileSync(join(out, 'context.md'), md.join('\n') + '\n');
+  writeFileSync(join(out, 'issues.md'), (md.length ? md.join('\n') : '(The PR links and refers to no issues.)') + '\n');
 
   console.log(`Collected PR #${pr.number} of ${repo} into ${out} from ${root}`);
   console.log(`  src/base: worktree at ${mb.slice(0, 10)} (merge base of ${baseRef}), ${states.base}`);

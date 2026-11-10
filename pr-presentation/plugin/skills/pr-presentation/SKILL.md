@@ -1,6 +1,6 @@
 ---
 name: pr-presentation
-description: Turn a GitHub pull request into an HTML slide deck that helps a developer who does not know the changed code understand what the PR does and why, before they read the diff. The deck is built from the code, not from the PR description: the slides show how the code worked, what was wrong or missing, and how each change corrects it. Suspected bugs and questions the code cannot answer stay as review notes on a closing slide. Use when the user wants a high-level or "zoomed out" view of a PR, a guided tour or presentation of it, or an easier way to read a diff, even if they only share a PR link.
+description: Turn a GitHub pull request into an HTML slide deck that helps a developer who does not know the changed code understand what the PR does and why, before they read the diff. Use when the user wants a high-level or "zoomed out" view of a PR, a guided tour or presentation of it, or an easier way to read a diff, even if they only share a PR link.
 argument-hint: <pr-url> <work-dir>
 allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(node *), Bash(git *)
 ---
@@ -15,35 +15,19 @@ The steps pass their results in files under `<WORK>`. `<SKILL>` is the base dire
 
 ## Investigation
 
-**Code first.** The code is the best specification of the change. Do not trust what the author says about the PR: the description, the commit messages and the review comments tell what the author thinks the change does, so do not read them. Answer every question from the code in the checkouts under `<WORK>/src`: the diff, the code around it, callers, definitions, types, names. Tests only confirm an answer. Only a question that the code cannot answer sends you further: to the linked and related issues in `context.md`, and to the git history of the touched lines in `src/base`. An answer from there is weaker than one from the code: say in "Looked at" where it comes from, and confirm in the code what you can. What this session already knows about the PR, from the user or from earlier work, does not count.
-
-**Concepts.**
-
-- Hunk: one changed block of the diff, `H01`, `H02` and so on.
-- Question: what a hunk or an answer leaves unexplained.
-- Answer: one to three sentences, with the file and lines that prove them.
-- Unexplained: a question that the code, the issues and the history leave unanswered.
-- Suspected bug: a case where the code does something wrong, found while answering a question.
-- Review note: a suspected bug or an unexplained question. It marks a place where the implementation must be trusted instead of understood, so it can show a problem in the PR.
-- Chain: the facts in the order a new reader needs them: how the code works, what was wrong, how each change corrects it. Each fact follows from the facts before it and refers to the questions that prove it. Each code hunk is part of the chain. A hunk that no fact needs is unexplained.
-
-**Questions.** Start from the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. An answer can raise new questions. Ask them too, even when they lead to unchanged code: the chain needs the code that the change depends on.
-
-**Answers.** Answer each question from the code. Read the lines, then write the answer and where you found it. Do not answer from memory. If the code cannot answer, check the issues and the history of the lines. If they cannot either, do not guess: mark it unexplained. Stop when every question has an answer or is unexplained.
-
 ### 1. Collect
 
 ```bash
 node <SKILL>/scripts/collect.mjs --pr <PR> [--repo <owner/repo>] --out <WORK>
 ```
 
-GitHub is asked only for the PR metadata and the linked issues. The code comes from the local checkout: the repository of the current directory, when one of its remotes is the PR's repository. For another checkout, pass `--root <path>`. If the current directory is not in a checkout of the PR's repository and no `--root` is given, stop and report it. The script fetches the base branch and the PR head and adds two git worktrees under `<WORK>/src`.
+The code comes from the checkout of the PR's repository in the current directory. For another checkout, pass `--root <path>`. If the script finds no checkout, stop and report it.
 
 `<WORK>` holds:
 
 - `src/base/`, `src/head/`: the whole repository at the merge base of the PR and at its head. Read and search them freely. Do not change them.
-- `context.md`: read only `## Linked issue` and `## Related issue`. The other sections are the PR description, commits and comments.
-- `pr.json`, `pr.diff`. Do not read `body` in `pr.json`: it is the PR description.
+- `issues.md`: the issues that the PR links or refers to, for the questions that the code cannot answer.
+- `pr.json`, `pr.diff`.
 
 ### 2. Split into hunks
 
@@ -51,11 +35,22 @@ GitHub is asked only for the PR metadata and the linked issues. The code comes f
 node <SKILL>/scripts/hunks.mjs split --diff <WORK>/pr.diff --out <WORK>
 ```
 
-A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in diff order across all files, `H01`, `H02` and so on. Each hunk gets a kind from its path: `code`, `test`, `screenshot` or `generated`. Only `code` hunks must raise a question. The script writes `hunks.json` and `annotated.md`, the diff with one `## H07 ...` section per hunk, and prints one line per hunk. Read `annotated.md` to see the hunks.
+A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in diff order across all files, `H01`, `H02` and so on. Each hunk gets a kind from its path: `code`, `test`, `screenshot` or `generated`. Only `code` hunks must raise a question and have a place in the plan. Files of the other kinds are never shown on a slide. The script writes `hunks.json` and `annotated.md`, the diff with one `## H07 ...` section per hunk, and prints one line per hunk. Read `annotated.md` to see the hunks.
 
 ### 3. Investigate
 
-Ask and answer as described above. Write `<WORK>/chain.md` in this format:
+**Code first.** The code is the best specification of the change. Do not trust what the author says about the PR: the description, the commit messages and the review comments tell what the author thinks the change does, so do not read them. Answer every question from the code in the checkouts under `<WORK>/src`: the diff, the code around it, callers, definitions, types, names. Tests only confirm an answer. Only a question that the code cannot answer sends you further: to the issues in `issues.md`, and to the git history of the touched lines in `src/base`. An answer from there is weaker than one from the code: say in "Looked at" where it comes from, and confirm in the code what you can. What this session already knows about the PR, from the user or from earlier work, does not count.
+
+**Concepts.**
+
+- Review note: a suspected bug or an unexplained question. It marks a place where the implementation must be trusted instead of understood, so it can show a problem in the PR.
+- Chain: the facts in the order a new reader needs them: how the code works, what was wrong, how each change corrects it. Each fact follows from the facts before it and refers to the questions that prove it. Each code hunk is part of the chain. A hunk that no fact needs is unexplained.
+
+**Questions.** Start from the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. An answer can raise new questions. Ask them too, even when they lead to unchanged code: the chain needs the code that the change depends on.
+
+**Answers.** Read the lines, then write the answer in one to three sentences, with the file and lines that prove it. Do not answer from memory. Do not guess: a question that nothing answers is unexplained. Stop when every question has an answer or is unexplained.
+
+Write `<WORK>/chain.md` in this format:
 
 ````markdown
 ## Questions
@@ -77,7 +72,7 @@ Ask and answer as described above. Write `<WORK>/chain.md` in this format:
 - New questions: none
 
 ### Q4 (from H03): Why does the change remove `aria-selected` from the copy, and not stop `_selectedChanged` from writing it?
-- Looked at: src/base/packages/item/src/vaadin-item-mixin.js L104-106, the linked issue in context.md, the history of src/base/packages/select/src/vaadin-select-base-mixin.js L517-526
+- Looked at: src/base/packages/item/src/vaadin-item-mixin.js L104-106, the linked issue in issues.md, the history of src/base/packages/select/src/vaadin-select-base-mixin.js L517-526
 - Unexplained: both places would fix the bug. The issue and the history do not tell why the change picks the copy.
 - New questions: none
 
@@ -92,7 +87,6 @@ Ask and answer as described above. Write `<WORK>/chain.md` in this format:
 - Review notes are lines in the entry of their question:
   - `- Unexplained: <what nothing answers>`: the code, the issues and the history give no answer, for example no reason for a change, a value or a check. A question without an answer must have this line. It can also follow an answer that tells what the code does but not why.
   - `- Suspected bug: <case>`: the code does something wrong in a case you found by reading it. Name the case. It is a finding from reading, not from running the code.
-- Q1 and Q2 have no review line: they are answered, and nothing in the answers looks wrong.
 
 Check, correct each problem, repeat until it shows none:
 
@@ -106,14 +100,11 @@ Write the whole chain before you plan any slide.
 
 The deck tells the chain of `chain.md`: one or more facts per slide, with the code that proves them. It uses only facts from the chain. The deck can show any file from `src/base` and `src/head`.
 
-**Concepts.**
-
-- New thing: a name or concept that no earlier slide explained, also a term from outside the code.
-- Review note tip: a tip that shows a review note of `chain.md` on the code it is about.
+A new thing is a name or concept that no earlier slide explained, also a term from outside the code.
 
 ### 4. Present
 
-Turn `chain.md` into `<WORK>/plan.md`: the slides, their order, the code on each slide and each tip. Step 6 builds the deck from the plan with a script, so the plan holds every decision. Do not write `slides.json` by hand.
+Turn `chain.md` into `<WORK>/plan.md`: the slides, their order, the code on each slide and each tip. Step 6 builds the deck from the plan with a script, so the plan holds every decision.
 
 Before you put code on a slide, open the files from "Looked at" again, choose the exact lines, and take each tip key from their text. Do not trust line numbers from the chain or from memory.
 
@@ -124,18 +115,15 @@ The reader reads the deck alone, in a browser, before the diff. Read `<SKILL>/re
 #### Slides
 
 - Put the slides in the order of the chain. Each slide shows one or more facts and the lines from "Looked at" of their questions.
-- Show only what the chain needs. If a slide needs a new fact, add its question and answer to `chain.md` first.
-- Code outside the change (a file in "Looked at" that the diff does not touch) gets a slide of its own only if the chain needs it before the first change, and only the lines the chain uses.
+- If a slide needs a new fact, add its question and answer to `chain.md` first.
 - Show each review note in a tip on the code it is about, starting with its kind and its questions: `Suspected bug (Q3): ...`, `Unexplained (Q4): ...`. It is for the author, not part of the explanation, and it is not a new thing. The page marks these tips and lists every review note of `chain.md` on a closing slide, also the ones without code on a slide.
-- Do not show tests, snapshots or screenshots.
 
 Kinds of slides:
 
-- **Background**: unchanged code the chain needs before the first change. All its code is context.
-- **Bug**: only for a change that fixes wrong behavior. The case that goes wrong as a step list, in the order it runs: what the user or the application does, then what the old code does, until the wrong result. Each step has one sentence and the one to three lines of old code that do it. The slide sentence names the case and the wrong result. Example with three steps: 1. The user selects an item, and `__appendValueItemElement` removes `aria-selected` from its copy. 2. Then `__attachSelectedItem` sets `labelItem.selected = true`. 3. The observer `_selectedChanged` writes `aria-selected` again, so the copy in the field is read as a selected option.
-  A change that replaces how the code works, without a case that goes wrong, has no bug slide: change slides show the old way on the left and the new way on the right.
-- **Fix**: right after the bug slide. Only the changed lines, old on the left and new on the right. Its sentence tells how the change removes the cause.
-- **Change**: any other change, old on the left and new on the right.
+- **Background**: unchanged code the chain needs before the first change, and only the lines the chain uses. All its code is context. Code from a file that the diff does not touch gets a slide of its own only as background.
+- **Bug**: only for a change that fixes wrong behavior. The case that goes wrong as a step list, in the order it runs: what the user or the application does, then what the old code does, until the wrong result. Each step has one sentence and the one to three lines of old code that do it. The slide sentence names the case and the wrong result.
+- **Fix**: right after the bug slide. Only the changed lines. Its sentence tells how the change removes the cause.
+- **Change**: any other change.
 
 #### Rules
 
@@ -147,10 +135,9 @@ One slide, one screen, one idea:
 
 Code:
 
-- Real lines from the PR, with their indentation. Do not change or join lines. To shorten, skip lines only.
 - Start each block with its enclosing line: the method signature, the class line, the CSS selector.
 - Show an unchanged line only if it opens a shown block, or the text or a tip mentions it. A one-line change gets a few lines, not a full method.
-- Do not show comments. The build leaves comment lines out of every range.
+- The build drops comment lines from every range.
 - Each piece of code on one slide only. Exception: the fix slide shows the changed lines of the bug slide again.
 - Mark all unchanged code `(context)`, on either side. The page shows it below the changed code.
 - Put old and new versions of the same code at the same chunk position, so the page aligns them and marks the changes. If the two sides are not versions of the same code, set `Align: off`.
@@ -160,7 +147,6 @@ Conditions: when the change touches a condition (a selector, an `if`, a flag che
 Text and tips:
 
 - A title of 2 to 5 words and one sentence of about 25 words. Everything else goes in tips.
-- Use only the concepts the reader needs to follow what was wrong and how the change corrects it.
 - A tip on each changed line and each new name: one point, a maximum of 20 words. Do not write a tip that only tells what a line does.
 - No tips on unchanged lines, except a line the reader would not connect to the change without one. That tip names the changed line it explains.
 - Short sentences, simple words, no em dashes. Many readers are not native speakers of English.
@@ -171,12 +157,12 @@ Write `<WORK>/plan.md` in this format. Refer to code by file and lines. Do not c
 
 ````markdown
 Summary: a maximum of three short sentences for the title slide.
-Omitted: none                                    <- or code hunks that are on no slide, each with its reason
+Omitted: none
 
 ## 1. <title>
-Hunks: none                                      <- the code hunks that this slide shows
+Hunks: none
 Text: one sentence.
-Introduces: valueButton, idea: placeholder item  <- the new things, a maximum of 4
+Introduces: valueButton, idea: placeholder item
 After:
 - src/head/<path> L530-549, skip L531-540 (context)
 
@@ -185,10 +171,12 @@ Hunks: none
 Text: what went wrong.
 Introduces: ...
 Steps:
-1. One sentence for this step.
+1. The user selects an item, and `__appendValueItemElement` removes `aria-selected` from its copy.
    - src/base/<path> L523 (in: __appendValueItemElement)
-2. One sentence for this step.
+2. Then `__attachSelectedItem` sets `labelItem.selected = true`.
    - src/base/<path> L491 (in: __attachSelectedItem)
+3. The observer `_selectedChanged` writes `aria-selected` again, so the copy in the field is read as a selected option.
+   - src/base/<path> L104-106 (in: _selectedChanged)
 
 ## 3. <title of a fix slide>
 Hunks: H01, H02
@@ -204,8 +192,10 @@ Tips:
 ````
 
 - A code reference is `src/base/...` (old code) or `src/head/...` (new code), with lines and optional skips. A skipped range shows as one `...` line. Add `(context)` for unchanged code, `(caption: "...")` for a heading.
+- `Before:` is the left side, for old code. `After:` is the right side, for new code. Their labels are "Before" and "After". Add `Labels: <left> / <right>` only when a slide needs other labels.
+- `Introduces:` lists the new things of the slide. A concept without a name is `idea: ...`.
 - A tip key is exact text from the code on that side: a name, a call or a full line. `name@2` is the second occurrence. `(both)`, `(before)` and `(after)` tell the side.
-- Each code hunk is on a slide (`Hunks:`) or in `Omitted:` with a reason in parentheses. Test hunks are in neither.
+- Each code hunk is on a slide (`Hunks:`) or in `Omitted:` with a reason in parentheses.
 
 Check, correct each problem, repeat until it shows none:
 
@@ -219,7 +209,7 @@ Then read only the titles and the slide texts in order. They must tell the chain
 
 The reader knows nothing but the slides: not this skill, not the PR, not the plan or the chain, not that there were earlier rounds.
 
-1. Run `node <SKILL>/scripts/hunks.mjs reader --work <WORK>`. It writes one numbered file per slide to `<WORK>/reader/slides/` and moves the `reading.md` of an earlier round to `reading-1.md`, `reading-2.md` and so on.
+1. Run `node <SKILL>/scripts/hunks.mjs reader --work <WORK>`. It writes one numbered file per slide to `<WORK>/reader/slides/`.
 2. Start a new agent in the foreground (`run_in_background: false`) with `model: "sonnet"`, and wait for its reply. Its prompt is the full text of `<SKILL>/references/reader.md`, with `<REPO>` replaced by `<WORK>/src/head`, `<SLIDES>` by `<WORK>/reader/slides` and `<NOTES>` by `<WORK>/reader/reading.md`. Add nothing else.
 3. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove it. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. Review note tips stay. Keep the rules of step 4; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
 4. Repeat with a new reader agent: do not continue the old one with `SendMessage`. Stop when `reading.md` has no items, or after two corrections.
