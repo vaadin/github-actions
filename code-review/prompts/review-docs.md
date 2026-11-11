@@ -24,6 +24,7 @@ How to review:
 
 What not to flag:
 
+- A security weakness in the product, even when you find it while you verify a claim: behavior that lets someone get past a protection the product offers, such as validation, access control, read-only access, escaping or authentication. Findings are public. A finding about the weakness, or text that you suggest to document it, would disclose a vulnerability that may already be released. It belongs in the project's private security process, not in this review. Report nothing about it, and do not hint at it in another finding.
 - Pre-existing issues that the change does not make worse. A line that moved from another page is in scope only when the move breaks it on the new page, such as a prerequisite that the new page does not introduce, a cross reference that no longer resolves, or wording that depends on the old page. Any other issue in a moved line is pre-existing.
 - Anything that a check of the pull request already reports. A prose linter usually checks wording, spelling and heading case. Other checks can compile, format or lint the examples. The instructions appended to the system prompt list the checks of this repository.
 - Word choice, tone and phrasing preferences that no stated convention backs.
