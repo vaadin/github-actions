@@ -24,6 +24,7 @@ How to review:
 What not to flag:
 
 - Pre-existing issues the change does not worsen.
+- A vulnerability that already exists in the merge-base checkout, in any area, even when the change touches the surrounding code. Findings are public, so reporting it would disclose a vulnerability that may already be released; it belongs in the project's private security process, not in this review.
 - Anything a linter, compiler, or formatter already catches.
 - Style or naming preferences that do not change behavior and are not backed by a stated convention.
 - Deliberate tradeoffs with a stated reason — check surrounding comments and the PR description before flagging.
@@ -83,7 +84,7 @@ What to look for:
 - **Data exposure:** secrets, credentials, or personal data written to logs, error messages, responses, or state sent to the client.
 - **Resource exhaustion:** crafted input that makes work or memory unbounded — unbounded sizes, counts, recursion depth, or regular expressions that backtrack catastrophically.
 
-Report only what the change itself introduces or makes reachable. Compare against the merge-base checkout: if the vulnerability already exists there, do not report it, even when the change touches the surrounding code. Pointing it out in a public review comment would disclose a vulnerability that may already be released; such issues belong in the project's private security process, not in this review.
+Report only what the change itself introduces or makes reachable. Compare against the merge-base checkout: a vulnerability that already exists there is never reported (see "What not to flag").
 
 Every security finding must name the attacker-controlled input, the path it takes through the code, and what it reaches. A sink without a verified untrusted source is not a finding.
 
@@ -95,7 +96,7 @@ Before reporting, curate your findings. For each finding, in order:
 2. Then classify its `value` — the cost of the underlying issue if the PR merges as-is:
    - `high` — verified wrong behavior: you confirmed in the code that a realistic consumer observes wrong results, corrupted state, or a broken contract, that an attacker-controlled input reaches what it must not — or that the change does not deliver what it claims.
    - `medium` — a verified gap with no wrong behavior today: a regression no test would catch, an invalid test setup that does not cover the intended scenario, documentation that disagrees with the code, a broken stated convention, or a behavior defect whose mechanism you verified but whose trigger you could not fully confirm (say what remains unconfirmed).
-   - `low` — everything weaker: a key claim you could not verify, a trigger that requires contrived usage, a cosmetic or negligible issue, a pre-existing condition the change does not worsen, or the same underlying issue as another finding (name it in the judgement).
+   - `low` — everything weaker: a key claim you could not verify, a trigger that requires contrived usage, a cosmetic or negligible issue, a pre-existing condition the change does not worsen (except a vulnerability, which is not reported at all), or the same underlying issue as another finding (name it in the judgement).
 
 Write the judgement before choosing the value: the judgement is the reasoning, the value is the conclusion.
 
