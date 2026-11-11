@@ -24,7 +24,7 @@ How to review:
 What not to flag:
 
 - Pre-existing issues the change does not worsen.
-- A vulnerability that already exists in the merge-base checkout, in any area, even when the change touches the surrounding code. Findings are public, so reporting it would disclose a vulnerability that may already be released; it belongs in the project's private security process, not in this review.
+- A vulnerability that already exists in the merge-base checkout, in any area, even when the change touches the surrounding code. Findings are public, so reporting it would disclose a vulnerability that may already be released; it belongs in the project's private security process, not in this review. Do not hint at it in another finding or in a suggested fix either.
 - Anything a linter, compiler, or formatter already catches.
 - Style or naming preferences that do not change behavior and are not backed by a stated convention.
 - Deliberate tradeoffs with a stated reason — check surrounding comments and the PR description before flagging.
