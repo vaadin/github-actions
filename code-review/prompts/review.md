@@ -24,6 +24,7 @@ How to review:
 What not to flag:
 
 - Pre-existing issues the change does not worsen.
+- A vulnerability that already exists in the merge-base checkout, in any area, even when the change touches the surrounding code. Findings are public, so reporting it would disclose a vulnerability that may already be released; it belongs in the project's private security process, not in this review.
 - Anything a linter, compiler, or formatter already catches.
 - Style or naming preferences that do not change behavior and are not backed by a stated convention.
 - Deliberate tradeoffs with a stated reason — check surrounding comments and the PR description before flagging.
@@ -71,15 +72,32 @@ Read the repository-root `CLAUDE.md` and any convention documents it references.
 
 Flag a violation only when you can quote the exact rule and point to the exact line that breaks it — no style preferences, no "spirit of the doc" inferences. Quote the rule in the finding so a maintainer can check it. If no `CLAUDE.md` exists, report nothing for this area.
 
+### Area 5: Security
+
+Find vulnerabilities the change introduces: an attacker-controlled input that, through the new or changed code, reaches something it must not.
+
+What to look for:
+
+- **Injection into the client:** untrusted strings reaching HTML, JavaScript or DOM sinks without escaping — `innerHTML`, `unsafeHTML`, HTML-rendering components, string-built templates, or JavaScript built by concatenating values instead of passing them as parameters (for example to `executeJs`).
+- **Injection on the server:** untrusted input reaching file paths (path traversal), queries, commands, expression or template evaluation, or deserialization.
+- **Access control:** a check that is removed, weakened, or applied on only one of the paths that reach the same action; client-side state or a client-supplied value trusted for a server-side decision, such as an id, a disabled or hidden flag, or a role.
+- **Data exposure:** secrets, credentials, or personal data written to logs, error messages, responses, or state sent to the client; placed in URLs, where they end up in browser history, server logs and the `Referer` header; or kept in server-side state, such as the session, longer than the request needs them.
+- **Insecure defaults:** a new API whose default, or whose behavior when an optional setting is forgotten, is the unsafe choice, such as no URL validation or a method that puts form data in the URL.
+- **Resource exhaustion:** crafted input that makes work or memory unbounded — unbounded sizes, counts, recursion depth, or regular expressions that backtrack catastrophically.
+
+Report only what the change itself introduces or makes reachable. Compare against the merge-base checkout: a vulnerability that already exists there is never reported (see "What not to flag"). Existing behavior that is safe on its own but becomes a risk through a use the change adds or documents, such as an existing field syncing its value to the server once the change offers it for passwords, is introduced by the change: report it against the new API, example or documentation.
+
+Every security finding must name the attacker-controlled input, the path it takes through the code, and what it reaches. In framework code the attacker's input usually arrives through the application: treat an argument of public API as untrusted when applications commonly fill it from user data, such as a URL, HTML or a file name, and in particular when similar existing API validates or escapes the same kind of value. Check how that sibling API handles it, and flag the new API when it does not do the same. Apart from that, a sink without a verified untrusted source is not a finding.
+
 ## Step 3: Curate your findings
 
 Before reporting, curate your findings. For each finding, in order:
 
 1. Write a `judgement`: two or three sentences on how the finding holds up now that the whole review is done — does the evidence hold, is every factual claim something you verified in the code, is the trigger realistic, and what does the issue cost if the PR merges as-is? Where the case depends on something you did not verify during the review — a caller you assumed, a doc you did not open, a test you did not search for — read it now, before judging.
 2. Then classify its `value` — the cost of the underlying issue if the PR merges as-is:
-   - `high` — verified wrong behavior: you confirmed in the code that a realistic consumer observes wrong results, corrupted state, or a broken contract — or that the change does not deliver what it claims.
+   - `high` — verified wrong behavior: you confirmed in the code that a realistic consumer observes wrong results, corrupted state, or a broken contract, that an attacker-controlled input reaches what it must not — or that the change does not deliver what it claims.
    - `medium` — a verified gap with no wrong behavior today: a regression no test would catch, an invalid test setup that does not cover the intended scenario, documentation that disagrees with the code, a broken stated convention, or a behavior defect whose mechanism you verified but whose trigger you could not fully confirm (say what remains unconfirmed).
-   - `low` — everything weaker: a key claim you could not verify, a trigger that requires contrived usage, a cosmetic or negligible issue, a pre-existing condition the change does not worsen, or the same underlying issue as another finding (name it in the judgement).
+   - `low` — everything weaker: a key claim you could not verify, a trigger that requires contrived usage, a cosmetic or negligible issue, a pre-existing condition the change does not worsen (except a vulnerability, which is not reported at all), or the same underlying issue as another finding (name it in the judgement).
 
 Write the judgement before choosing the value: the judgement is the reasoning, the value is the conclusion.
 
@@ -106,7 +124,7 @@ When your review is complete, call the StructuredOutput tool once with your find
 - `line`: the concrete line in the file that relates to the finding
 - `summary`: summary of the finding
 - `explanation`: explanation of the finding
-- `category`: one of `correctness`, `documentation`, `tests`, `conventions`
+- `category`: one of `correctness`, `documentation`, `tests`, `conventions`, `security`
 - `judgement`: your judgement from Step 3
 - `value`: your value classification from Step 3
 

@@ -81,6 +81,7 @@ const CATEGORY_EMOJI = {
   documentation: '📝',
   tests: '🧪',
   conventions: '📐',
+  security: '🔒',
   accuracy: '⚠️',
   clarity: '💬',
   examples: '🧩',

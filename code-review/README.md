@@ -42,7 +42,7 @@ the findings schema, the value tiers and the posting.
 
 | Profile | Prompt | Reviews | Categories |
 |---|---|---|---|
-| `code` (default) | [prompts/review.md](prompts/review.md) | Framework and library code | `correctness`, `documentation`, `tests`, `conventions` |
+| `code` (default) | [prompts/review.md](prompts/review.md) | Framework and library code | `correctness`, `documentation`, `tests`, `conventions`, `security` |
 | `docs` | [prompts/review-docs.md](prompts/review-docs.md) | Documentation pages and their code examples | `accuracy`, `clarity`, `examples`, `placement`, `conventions` |
 
 The prompts ship with the action. A caller cannot pass a prompt file, so a
