@@ -81,12 +81,13 @@ What to look for:
 - **Injection into the client:** untrusted strings reaching HTML, JavaScript or DOM sinks without escaping — `innerHTML`, `unsafeHTML`, HTML-rendering components, string-built templates, or JavaScript built by concatenating values instead of passing them as parameters (for example to `executeJs`).
 - **Injection on the server:** untrusted input reaching file paths (path traversal), queries, commands, expression or template evaluation, or deserialization.
 - **Access control:** a check that is removed, weakened, or applied on only one of the paths that reach the same action; client-side state or a client-supplied value trusted for a server-side decision, such as an id, a disabled or hidden flag, or a role.
-- **Data exposure:** secrets, credentials, or personal data written to logs, error messages, responses, or state sent to the client.
+- **Data exposure:** secrets, credentials, or personal data written to logs, error messages, responses, or state sent to the client; placed in URLs, where they end up in browser history, server logs and the `Referer` header; or kept in server-side state, such as the session, longer than the request needs them.
+- **Insecure defaults:** a new API whose default, or whose behavior when an optional setting is forgotten, is the unsafe choice, such as no URL validation or a method that puts form data in the URL.
 - **Resource exhaustion:** crafted input that makes work or memory unbounded — unbounded sizes, counts, recursion depth, or regular expressions that backtrack catastrophically.
 
-Report only what the change itself introduces or makes reachable. Compare against the merge-base checkout: a vulnerability that already exists there is never reported (see "What not to flag").
+Report only what the change itself introduces or makes reachable. Compare against the merge-base checkout: a vulnerability that already exists there is never reported (see "What not to flag"). Existing behavior that is safe on its own but becomes a risk through a use the change adds or documents, such as an existing field syncing its value to the server once the change offers it for passwords, is introduced by the change: report it against the new API, example or documentation.
 
-Every security finding must name the attacker-controlled input, the path it takes through the code, and what it reaches. A sink without a verified untrusted source is not a finding.
+Every security finding must name the attacker-controlled input, the path it takes through the code, and what it reaches. In framework code the attacker's input usually arrives through the application: treat an argument of public API as untrusted when applications commonly fill it from user data, such as a URL, HTML or a file name, and in particular when similar existing API validates or escapes the same kind of value. Check how that sibling API handles it, and flag the new API when it does not do the same. Apart from that, a sink without a verified untrusted source is not a finding.
 
 ## Step 3: Curate your findings
 
