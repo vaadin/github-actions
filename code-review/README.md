@@ -55,7 +55,7 @@ Deliberately hard-coded, each a one-line edit:
 
 | Constant | Where | Value |
 |---|---|---|
-| Model | `MODEL` in [run-review.mjs](run-review.mjs) | `claude-opus-5-5` |
+| Model | `MODEL` in [run-review.mjs](run-review.mjs) | `claude-opus-5` |
 | Effort level | `EFFORT` in [run-review.mjs](run-review.mjs) | `high` |
 | Value bar (minimum tier posted) | `VALUE_BAR` in [run-review.mjs](run-review.mjs) | `medium` |
 | Session timeout | `SESSION_TIMEOUT_MS` in [run-review.mjs](run-review.mjs) | 30 min |
