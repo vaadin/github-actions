@@ -59,7 +59,7 @@ import { fileURLToPath } from 'node:url';
 
 // The session's model, passed as an explicit ID so the pinned Claude Code
 // version (see action.yml) can move independently of the model.
-const MODEL = 'claude-opus-5-5';
+const MODEL = 'claude-opus-5';
 
 // The session's effort level, passed explicitly because the default effort
 // depends on the model: a model switch must not silently change how much

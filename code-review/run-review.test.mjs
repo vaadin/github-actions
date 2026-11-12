@@ -88,9 +88,9 @@ test('fails on an unknown profile before starting a session', () => {
 test('pins the model and the effort level and logs both', () => {
   const { status, stderr, stdout, args } = runReview();
   assert.strictEqual(status, 0, stderr);
-  assert.strictEqual(argValue(args, '--model'), 'claude-opus-5-5');
+  assert.strictEqual(argValue(args, '--model'), 'claude-opus-5');
   assert.strictEqual(argValue(args, '--effort'), 'high');
-  assert.match(stdout, /model claude-opus-5-5, effort high\./);
+  assert.match(stdout, /model claude-opus-5, effort high\./);
 });
 
 test('offers only research tools and advertises the read-only commands', () => {
