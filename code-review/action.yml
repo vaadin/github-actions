@@ -51,6 +51,14 @@ inputs:
       prompt.
     required: false
     default: ''
+  skip-if-reviewed:
+    description: >-
+      Set to 'true' to skip the review when the PR head commit already has a
+      submitted review by the github-token identity. Pass 'true' for automatic
+      triggers (e.g. ready_for_review) and 'false' for explicit review
+      requests, so a requested review always runs.
+    required: false
+    default: 'false'
   upload-execution-log:
     description: >-
       Set to 'true' to upload the full stream-json execution log as a workflow
@@ -64,7 +72,16 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Check for a review of the head commit
+      id: reviewed
+      if: inputs.skip-if-reviewed == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: node "$GITHUB_ACTION_PATH/check-reviewed.mjs" "${{ inputs.pr-number }}"
+
     - name: Prepare review scope
+      if: steps.reviewed.outputs.skip != 'true'
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token }}
@@ -72,6 +89,7 @@ runs:
 
     - name: Prepare Claude run
       id: prepare
+      if: steps.reviewed.outputs.skip != 'true'
       shell: bash
       env:
         REFERENCE_REPOS: ${{ inputs.reference-repos }}
@@ -81,11 +99,13 @@ runs:
       run: node "$GITHUB_ACTION_PATH/../lib/claude-prepare.mjs"
 
     - name: Install Claude Code
+      if: steps.reviewed.outputs.skip != 'true'
       shell: bash
       run: npm install -g --allow-scripts=@anthropic-ai/claude-code @anthropic-ai/claude-code@2.1.318
 
     - name: Run Claude Code review
       id: review
+      if: steps.reviewed.outputs.skip != 'true'
       shell: bash
       env:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
@@ -95,6 +115,7 @@ runs:
       run: node "$GITHUB_ACTION_PATH/run-review.mjs"
 
     - name: Post review
+      if: steps.reviewed.outputs.skip != 'true'
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token }}
