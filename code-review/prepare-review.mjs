@@ -17,7 +17,8 @@
  *   pr.diff, pr-files.txt, pr-meta.json, base/ (merge-base worktree),
  *   existing-reviews.md (only when the PR already has reviews),
  *   review-inputs.md
- * Prints the review-inputs path to stdout.
+ * Prints the review-inputs path to stdout and writes the step output
+ * ($GITHUB_OUTPUT) head-sha: the head commit the review covers.
  *
  * Usage:
  *   node code-review/prepare-review.mjs <pr-number>
@@ -37,6 +38,15 @@ function capture(file, args) {
     maxBuffer: MAX_BUFFER,
     stdio: ['ignore', 'pipe', 'inherit'],
   });
+}
+
+// Write a step output ($GITHUB_OUTPUT), or print it when run locally.
+function writeOutput(name, value) {
+  if (process.env.GITHUB_OUTPUT) {
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
+  } else {
+    console.log(`${name}=${value}`);
+  }
 }
 
 function requireEnv(name) {
@@ -196,6 +206,13 @@ function main() {
   const existingReviewsPath = path.join(scopeDir, 'existing-reviews.md');
   const reviewInputsPath = path.join(scopeDir, 'review-inputs.md');
 
+  // The head commit the review covers, resolved before the diff: a push
+  // after this point leaves the new commit unreviewed by this run, and the
+  // review is posted on this commit, so a later skip-if-reviewed check
+  // reviews the new one.
+  const headSha = capture('gh', ['pr', 'view', prNumber, '--json', 'headRefOid', '--jq', '.headRefOid']).trim();
+  writeOutput('head-sha', headSha);
+
   // The diff exactly as GitHub renders it, the changed-file list, and metadata.
   fs.writeFileSync(diffPath, capture('gh', ['pr', 'diff', prNumber]));
   fs.writeFileSync(filesPath, capture('gh', ['pr', 'diff', prNumber, '--name-only']));
@@ -209,7 +226,6 @@ function main() {
 
   // Merge-base = the pre-change state, resolved by the compare API regardless
   // of local history or where the base branch has moved since.
-  const headSha = capture('gh', ['pr', 'view', prNumber, '--json', 'headRefOid', '--jq', '.headRefOid']).trim();
   const baseRefSha = capture('gh', ['pr', 'view', prNumber, '--json', 'baseRefOid', '--jq', '.baseRefOid']).trim();
   const baseSha = capture('gh', ['api', `repos/${repo}/compare/${baseRefSha}...${headSha}`, '--jq', '.merge_base_commit.sha']).trim();
 
