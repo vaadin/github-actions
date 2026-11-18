@@ -81,6 +81,7 @@ runs:
       run: node "$GITHUB_ACTION_PATH/check-reviewed.mjs" "${{ inputs.pr-number }}"
 
     - name: Prepare review scope
+      id: scope
       if: steps.reviewed.outputs.skip != 'true'
       shell: bash
       env:
@@ -120,6 +121,7 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.github-token }}
         FINDINGS_FILE: ${{ steps.review.outputs.findings-file }}
+        HEAD_SHA: ${{ steps.scope.outputs.head-sha }}
       run: node "$GITHUB_ACTION_PATH/post-review.mjs" "${{ inputs.pr-number }}"
 
     - name: Summarize Claude session
