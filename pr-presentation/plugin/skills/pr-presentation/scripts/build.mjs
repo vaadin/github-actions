@@ -4,9 +4,9 @@
 // Usage:
 //   build.mjs --pr pr.json --slides slides.json [--src src] --out page.html
 //
-// pr.json:     written by collect.mjs: the `gh pr view` fields plus mergeBaseOid
+// pr.json:     written by the skill when it collects the PR: number, title, url, mergeBaseOid
 // slides.json: written by hunks.mjs build from plan.md; see references/slides-json.md next to SKILL.md
-// src:         the worktrees from collect.mjs (src/base, src/head); member lines then link to their line on GitHub
+// src:         the worktrees the skill collects (src/base, src/head); member lines then link to their line on GitHub
 //
 // The build only checks that the data is well-formed and that every tip key and introduced name
 // exists in the slide's code. The quality rules live in SKILL.md.

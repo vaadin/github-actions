@@ -2,32 +2,30 @@
 name: pr-presentation
 description: Turn a GitHub pull request into an HTML slide deck that helps a developer who does not know the changed code understand what the PR does and why, before they read the diff. Use when the user wants a high-level or "zoomed out" view of a PR, a guided tour or presentation of it, or an easier way to read a diff, even if they only share a PR link.
 argument-hint: <pr-url> <work-dir>
-allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(node *), Bash(git *)
+allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(node *), Bash(git *), Bash(gh *)
 ---
 
 ## Run
 
-The work has two parts. The investigation (steps 1 to 3) reads the PR and writes `chain.md`: what the change does and why, proven from the code. The deck (steps 4 to 6) turns `chain.md` into slides: a plan, a reader agent that sees nothing but the slides and checks them, and scripts that build the deck from the plan.
+The work has two parts. The investigation reads the PR and writes `chain.md`: what the change does and why, proven from the code. The deck turns `chain.md` into slides: a plan, a reader agent that sees nothing but the slides and checks them, and scripts that build the deck from the plan.
 
-The steps pass their results in files under `<WORK>`. `<SKILL>` is the base directory of this skill, printed as "Base directory for this skill" when it is invoked. `$0` is the PR URL. `$1` is `<WORK>`, the folder for all files of the run; create it if it does not exist. If an argument is missing, stop and report it.
+All files of the run are under `<WORK>`. `<SKILL>` is the base directory of this skill, printed as "Base directory for this skill" when it is invoked. `$0` is the PR URL. `$1` is `<WORK>`, the folder for all files of the run; create it if it does not exist. If an argument is missing, stop and report it.
 
-**Output.** The only result is the file `<WORK>/deck.html`. Nobody reads your replies and nobody answers questions during the run. When step 6 is done, stop with an empty reply: do not summarize the deck. If a step cannot continue, stop and report why in one sentence.
+**Output.** The only result is the file `<WORK>/deck.html`. Nobody reads your replies and nobody answers questions during the run. When the deck is built and checked, stop with an empty reply: do not summarize the deck. If you cannot continue, stop and report why in one sentence.
 
 ## Investigation
 
 ### 1. Collect
 
-```bash
-node <SKILL>/scripts/collect.mjs --pr <PR> [--repo <owner/repo>] --out <WORK>
-```
+The current directory is a checkout of the PR's repository. Use `gh` and `git`, one plain command per call: no `cd`, variables, `&&`, redirects or `mkdir` (`git diff` has `--output`). If the collect fails, stop and report it.
 
-The code comes from the checkout of the PR's repository in the current directory. For another checkout, pass `--root <path>`. If the script finds no checkout, stop and report it.
+Fetch the base branch and the PR head, find the merge base, and make `<WORK>`:
 
-`<WORK>` holds:
+- `src/base/`, `src/head/`: worktrees at the merge base and at the PR head. Do not change them.
+- `pr.diff`: the diff from the merge base to the head.
+- `pr.json`: `number`, `title`, `url` and `mergeBaseOid`.
 
-- `src/base/`, `src/head/`: the whole repository at the merge base of the PR and at its head. Read and search them freely. Do not change them.
-- `issues.md`: the issues that the PR links or refers to, for the questions that the code cannot answer.
-- `pr.json`, `pr.diff`.
+Do not read the PR description. The issues are the ones the PR links, and the ones the description refers to: extract only their numbers with `gh pr view --jq`. Read an issue only for a question that the code cannot answer.
 
 ### 2. Split into hunks
 
@@ -39,7 +37,7 @@ A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in 
 
 ### 3. Investigate
 
-**Code first.** The code is the best specification of the change. Do not trust what the author says about the PR: the description, the commit messages and the review comments tell what the author thinks the change does, so do not read them. Answer every question from the code in the checkouts under `<WORK>/src`: the diff, the code around it, callers, definitions, types, names. Tests only confirm an answer. Only a question that the code cannot answer sends you further: to the issues in `issues.md`, and to the git history of the touched lines in `src/base`. An answer from there is weaker than one from the code: say in "Looked at" where it comes from, and confirm in the code what you can. What this session already knows about the PR, from the user or from earlier work, does not count.
+**Code first.** The code is the best specification of the change. Do not trust what the author says about the PR: the description, the commit messages and the review comments tell what the author thinks the change does, so do not read them. Answer every question from the code in the checkouts under `<WORK>/src`: the diff, the code around it, callers, definitions, types, names. Tests only confirm an answer. Only a question that the code cannot answer sends you further: to the issues of the PR, and to the git history of the touched lines in `src/base`. An answer from there is weaker than one from the code: say in "Looked at" where it comes from, and confirm in the code what you can. What this session already knows about the PR, from the user or from earlier work, does not count.
 
 **Concepts.**
 
@@ -72,7 +70,7 @@ Write `<WORK>/chain.md` in this format:
 - New questions: none
 
 ### Q4 (from H03): Why does the change remove `aria-selected` from the copy, and not stop `_selectedChanged` from writing it?
-- Looked at: src/base/packages/item/src/vaadin-item-mixin.js L104-106, the linked issue in issues.md, the history of src/base/packages/select/src/vaadin-select-base-mixin.js L517-526
+- Looked at: src/base/packages/item/src/vaadin-item-mixin.js L104-106, the linked issue, the history of src/base/packages/select/src/vaadin-select-base-mixin.js L517-526
 - Unexplained: both places would fix the bug. The issue and the history do not tell why the change picks the copy.
 - New questions: none
 
@@ -104,7 +102,7 @@ A new thing is a name or concept that no earlier slide explained, also a term fr
 
 ### 4. Present
 
-Turn `chain.md` into `<WORK>/plan.md`: the slides, their order, the code on each slide and each tip. Step 6 builds the deck from the plan with a script, so the plan holds every decision.
+Turn `chain.md` into `<WORK>/plan.md`: the slides, their order, the code on each slide and each tip. A script builds the deck from the plan, so the plan holds every decision.
 
 Before you put code on a slide, open the files from "Looked at" again, choose the exact lines, and take each tip key from their text. Do not trust line numbers from the chain or from memory.
 
@@ -211,7 +209,7 @@ The reader knows nothing but the slides: not this skill, not the PR, not the pla
 
 1. Run `node <SKILL>/scripts/hunks.mjs reader --work <WORK>`. It writes one numbered file per slide to `<WORK>/reader/slides/`.
 2. Start a new agent in the foreground (`run_in_background: false`) with `model: "sonnet"`, and wait for its reply. Its prompt is the full text of `<SKILL>/references/reader.md`, with `<REPO>` replaced by `<WORK>/src/head`, `<SLIDES>` by `<WORK>/reader/slides` and `<NOTES>` by `<WORK>/reader/reading.md`. Add nothing else.
-3. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove it. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. Review note tips stay. Keep the rules of step 4; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
+3. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove it. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. Review note tips stay. Keep the slide rules; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
 4. Repeat with a new reader agent: do not continue the old one with `SendMessage`. Stop when `reading.md` has no items, or after two corrections.
 
 ### 6. Build
