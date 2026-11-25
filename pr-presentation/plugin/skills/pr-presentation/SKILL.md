@@ -207,7 +207,7 @@ Then read only the titles and the slide texts in order. They must tell the chain
 The reader knows nothing but the slides: not this skill, not the PR, not the plan or the chain, not that there were earlier rounds.
 
 1. Start a new agent in the foreground (`run_in_background: false`) with `model: "sonnet"`, and wait for its reply. Its prompt is the full text of `<SKILL>/references/reader.md`, with `<REPO>` replaced by `<WORK>/src/head`, `<SLIDES>` by `<WORK>/reader/slides` and `<NOTES>` by `<WORK>/reader/reading.md`. Add nothing else.
-2. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove it. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. Review note tips stay. Keep the slide rules; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
+2. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove that term, claim or step from the slide. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. Review note tips stay. Keep the slide rules; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
 3. Repeat with a new reader agent: do not continue the old one with `SendMessage`. Stop when `reading.md` has no items, or after two corrections.
 
 ### 6. Build
