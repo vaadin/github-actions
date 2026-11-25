@@ -157,7 +157,8 @@ function shownIn(line, lines, joined) {
   for (const l of lines) {
     if (GAP_RE.test(l)) {
       const pieces = l.split(GAP_RE).map((p) => escapeRe(squash(p)));
-      if (pieces.length > 1 && new RegExp('^' + pieces.join('.*?') + '$').test(s)) return true;
+      // A line of only '...' (a skipped range) would match any line
+      if (pieces.length > 1 && pieces.join('') && new RegExp('^' + pieces.join('.*?') + '$').test(s)) return true;
     }
   }
   return false;
