@@ -195,7 +195,7 @@ Tips:
 - A tip key is exact text from the code on that side: a name, a call or a full line. `name@2` is the second occurrence. `(both)`, `(before)` and `(after)` tell the side.
 - Each code hunk is on a slide (`Hunks:`) or in `Omitted:` with a reason in parentheses.
 
-Check, correct each problem, repeat until it shows none:
+Check, correct each problem, repeat until it shows none. Without problems, it also writes the slides for the reader:
 
 ```bash
 node <SKILL>/scripts/hunks.mjs plan --work <WORK>
@@ -207,20 +207,14 @@ Then read only the titles and the slide texts in order. They must tell the chain
 
 The reader knows nothing but the slides: not this skill, not the PR, not the plan or the chain, not that there were earlier rounds.
 
-1. Run `node <SKILL>/scripts/hunks.mjs reader --work <WORK>`. It writes one numbered file per slide to `<WORK>/reader/slides/`.
-2. Start a new agent in the foreground (`run_in_background: false`) with `model: "sonnet"`, and wait for its reply. Its prompt is the full text of `<SKILL>/references/reader.md`, with `<REPO>` replaced by `<WORK>/src/head`, `<SLIDES>` by `<WORK>/reader/slides` and `<NOTES>` by `<WORK>/reader/reading.md`. Add nothing else.
-3. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove it. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. Review note tips stay. Keep the slide rules; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
-4. Repeat with a new reader agent: do not continue the old one with `SendMessage`. Stop when `reading.md` has no items, or after two corrections.
+1. Start a new agent in the foreground (`run_in_background: false`) with `model: "sonnet"`, and wait for its reply. Its prompt is the full text of `<SKILL>/references/reader.md`, with `<REPO>` replaced by `<WORK>/src/head`, `<SLIDES>` by `<WORK>/reader/slides` and `<NOTES>` by `<WORK>/reader/reading.md`. Add nothing else.
+2. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove it. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. Review note tips stay. Keep the slide rules; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
+3. Repeat with a new reader agent: do not continue the old one with `SendMessage`. Stop when `reading.md` has no items, or after two corrections.
 
 ### 6. Build
 
 ```bash
 node <SKILL>/scripts/hunks.mjs build --work <WORK>
-node <SKILL>/scripts/build.mjs --pr <WORK>/pr.json --slides <WORK>/slides.json --src <WORK>/src --out <WORK>/deck.html
-node <SKILL>/scripts/hunks.mjs slides --work <WORK>
-node <SKILL>/scripts/check.mjs <WORK>/deck.html <WORK>/shots
 ```
 
-`hunks.mjs build` writes `slides.json` from `plan.md` and `chain.md`. `hunks.mjs slides` shows which changed lines are on no slide. `check.mjs` saves one PNG per slide to `<WORK>/shots` and shows the slides that overflow.
-
-Correct each problem in `plan.md` or `chain.md`, never in `slides.json`, and build again: a tip key that is not found, a NOT SHOWN hunk, a slide that overflows. Then look at the PNGs of the title slide, the first slide, each slide that overflows and the closing slide.
+It builds `<WORK>/deck.html` from `plan.md` and `chain.md`, saves one PNG per slide to `<WORK>/shots`, and shows the problems: a tip key that is not found, a NOT SHOWN hunk, a slide that overflows. Correct each problem in `plan.md` or `chain.md`, never in `slides.json`, and build again. Then look at the PNGs of the title slide, the first slide, each slide that overflows and the closing slide.
