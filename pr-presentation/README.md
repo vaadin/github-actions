@@ -29,6 +29,10 @@ explains the change from its code, not from the PR description.
 skill. The run script loads it with `--plugin-dir` and starts the session
 with the prompt `/pr-presentation <PR URL> <work folder>`, as a user would.
 
+[`slides-json.md`](slides-json.md) describes `slides.json`, the file that the
+skill's scripts write from the plan and build the deck from. The model never
+reads or writes it, so it is not part of the skill.
+
 ## Tuning
 
 Deliberately hard-coded, each a one-line edit:

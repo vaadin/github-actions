@@ -19,7 +19,7 @@
 //   hunks.mjs build    --work <WORK>
 //       Writes <WORK>/slides.json from plan.md and chain.md, the input of build.mjs: the code of each line range as
 //       the deck shows it (no comment lines, one "..." per skipped range, the common indentation of each file
-//       removed), the tips, and the open questions with the slide that holds their tip. See references/slides-json.md.
+//       removed), the tips, and the open questions with the slide that holds their tip. See slides-json.md next to the README of pr-presentation.
 //       Then checks which changed lines of each code hunk are on a slide (a hunk with none fails, unless it is
 //       omitted), builds <WORK>/deck.html with build.mjs, and saves one PNG per slide to <WORK>/shots with check.mjs,
 //       which reports the slides that overflow. Exits 1 if any of these steps found a problem.
