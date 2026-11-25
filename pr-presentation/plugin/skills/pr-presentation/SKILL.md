@@ -33,7 +33,7 @@ Do not read the PR description. The issues are the ones the PR links, and the on
 node <SKILL>/scripts/hunks.mjs split --diff <WORK>/pr.diff --out <WORK>
 ```
 
-A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in diff order across all files, `H01`, `H02` and so on. Each hunk gets a kind from its path: `code`, `test`, `screenshot` or `generated`. Only `code` hunks must raise a question and have a place in the plan. Files of the other kinds are never shown on a slide. The script writes `hunks.json` and `annotated.md`, the diff with one `## H07 ...` section per hunk, and prints one line per hunk. Read `annotated.md` to see the hunks.
+A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in diff order across all files, `H01`, `H02` and so on. Each hunk gets a kind from its path: `code`, `test`, `screenshot` or `generated`. Only `code` hunks must raise a question. Files of the other kinds are never shown on a slide. The script writes `hunks.json` and `annotated.md`, the diff with one `## H07 ...` section per hunk, and prints one line per hunk. Read `annotated.md` to see the hunks.
 
 ### 3. Investigate
 
@@ -125,10 +125,15 @@ Kinds of slides:
 
 #### Rules
 
-One slide, one screen, one idea:
+Limits, checked by `hunks.mjs plan`:
 
 - A slide fits one screen. If not, make the code smaller or continue on the next slide.
-- A slide has a maximum of 4 new things. Explain each on the slide where it first occurs, and do not use it before that slide.
+- A slide has a maximum of 4 new things.
+- A tip has one point and a maximum of 20 words.
+
+One idea per slide:
+
+- Explain each new thing on the slide where it first occurs, and do not use it before that slide.
 - Each slide text is clear on its own. Do not refer to other slides by number, or with "continuing" or "as shown before".
 
 Code:
@@ -145,7 +150,7 @@ Conditions: when the change touches a condition (a selector, an `if`, a flag che
 Text and tips:
 
 - A title of 2 to 5 words and one sentence of about 25 words. Everything else goes in tips.
-- A tip on each changed line and each new name: one point, a maximum of 20 words. Do not write a tip that only tells what a line does.
+- A tip on each changed line and each new name. Do not write a tip that only tells what a line does.
 - No tips on unchanged lines, except a line the reader would not connect to the change without one. That tip names the changed line it explains.
 - Short sentences, simple words, no em dashes. Many readers are not native speakers of English.
 
