@@ -47,7 +47,7 @@ const OPEN_ITEM_RE = new RegExp(`^- (${KINDS_RE}):[ \\t]*(\\S.*)$`, 'gm');
 const OPEN_TIP_RE = new RegExp(`^(${KINDS_RE}) \\((Q\\d+(?:,\\s*Q\\d+)*)\\):`);
 // "- `key` (after): text" under "Tips:" of a slide; the key may be wrapped in double backticks
 const TIP_RE = /^- (``?)(.+?)\1 \((before|after|both)\): (.+)$/gm;
-// "- src/head/<path> L12-20, skip L14-16 (context)" under Before:, After: or a step
+// "- src/head/<path> L12-20, skip L14-16 (context)" under Before: or After:
 const REF_RE = /^\s*- (src\/(?:base|head)\/\S+) L(\d+)(?:-(\d+))?((?:, skip L\d+-\d+)*)(.*)$/gm;
 
 const splitlines = (text) => { const a = text.split(/\r?\n/); if (a.length && a.at(-1) === '') a.pop(); return a; };
@@ -62,7 +62,6 @@ const repr = (s) => (s.includes("'") && !s.includes('"') ? `"${s.replace(/\\/g, 
 const indentOf = (l) => l.match(/^\s*/)[0].length;
 const minIndent = (lines) => Math.min(Infinity, ...lines.filter((l) => l.trim()).map(indentOf));
 const stripIndent = (lines, n) => (Number.isFinite(n) ? lines.map((l) => (l.trim() ? l.slice(Math.min(n, indentOf(l))) : '')) : lines);
-const dedent = (lines) => stripIndent(lines, minIndent(lines));
 // Prose for the page: the page escapes HTML, so <kbd>Home</kbd> from the chain becomes Home
 const plain = (s) => s.replace(/<\/?kbd>/g, '');
 
@@ -178,8 +177,6 @@ function cmdSlides(args) {
   const sides = {};
   for (const [side, key] of [['before', 'del'], ['after', 'add']]) {
     const lines = paneLines(slides, side);
-    // Step code is old code
-    if (side === 'before') for (const sl of slides.slides || []) for (const st of sl.steps || []) lines.push(...(st.code || '').split('\n'));
     sides[key] = [lines, squash(lines.join(''))];
   }
   const failed = [];
@@ -222,7 +219,6 @@ const HEAD = 88, TEXT_LINE = 29, TEXT_CHARS = 126;
 const LINE = 25, BLANK = 12, PANE = 11, CHUNK = 16;
 const CTX_LINE = 21, CTX_PANE = 11, CTX_CHUNK = 12;
 const FILE = 20, NEW_FILE = 16;
-const STEP_LINE = 25, STEP_TEXT = 30, STEP_PANE = 44, STEP_ARROW = 24;
 const COMMENT_START_RE = /^\s*(\/\/|\/\*|\*|<!--|#\s|})/;
 
 // The lines as the deck shows them: no comment lines, no run of blank lines, no blank line at the ends.
@@ -237,7 +233,7 @@ function shownLines(lines) {
   return out;
 }
 
-// The code references of one block of a slide: {path, file, from, to, lines, shown, ctx, where}.
+// The code references of one block of a slide: {path, file, from, to, lines, shown, ctx}.
 // `lines` is the range with one "..." per skipped range, indented like the first skipped line that is not
 // blank; `shown` is what the deck shows (see shownLines); both are null when the file is missing.
 function planRefs(work, block) {
@@ -250,7 +246,6 @@ function planRefs(work, block) {
     const ref = {
       path, file: repoPath(path), from: a, to: b, lines: null, shown: null,
       ctx: tail.includes('(context)'),
-      where: ((/\(in:\s*([^)]*)\)/.exec(tail) || [])[1] || '').trim(),
     };
     refs.push(ref);
     const f = join(work, path);
@@ -343,30 +338,6 @@ function slideSides(work, slide) {
   });
 }
 
-// The steps of a step-list slide in plan.md: {text, refs} for each numbered step.
-function slideSteps(work, slide) {
-  const m = /^Steps:\n((?:(?:\d+\. |\s+- ).*\n?)*)/m.exec(slide);
-  if (!m) return [];
-  const steps = [];
-  for (const line of m[1].split(/(?<=\n)/)) {
-    const num = /^\d+\. (.*)$/.exec(line.replace(/\n$/, ''));
-    if (num) steps.push({ text: num[1].trim(), block: '' });
-    else if (steps.length) steps.at(-1).block += line;
-  }
-  return steps.map((st) => ({ text: st.text, refs: planRefs(work, st.block) }));
-}
-
-// Estimated height of a step list: heading and text, then each step with its sentence, code and arrow.
-function stepsHeight(text, steps) {
-  let h = textHeight(text);
-  steps.forEach((st, i) => {
-    const lines = st.refs.flatMap((r) => r.shown || []);
-    h += STEP_TEXT * Math.max(1, Math.ceil(st.text.length / 100)) + STEP_PANE + lines.reduce((s, l) => s + (l.trim() ? STEP_LINE : BLANK), 0);
-    h += i ? STEP_ARROW : 0;
-  });
-  return h;
-}
-
 // The "## Name" sections of chain.md
 function chainSections(text) {
   const sections = {};
@@ -418,11 +389,9 @@ function cmdPlan(args) {
       problems += 1;
     }
     // The slide must fit one screen, its line ranges must start at real code, and its names must be in its code
-    let sides = slideSides(work, slide);
-    const steps = slideSteps(work, slide);
+    const sides = slideSides(work, slide);
     const textLine = planLine(slide, 'Text');
-    const height = steps.length ? stepsHeight(textLine, steps) : slideHeight(textLine, sides);
-    if (steps.length) sides = [steps.flatMap((st) => st.refs), []];
+    const height = slideHeight(textLine, sides);
     if (height > SCREEN) {
       console.log(`TOO HIGH about ${height}px of ${SCREEN}px: ${title} (skip lines, or continue on the next slide)`);
       problems += 1;
@@ -496,9 +465,6 @@ function cmdReader(args) {
     const title = slideTitle(slide);
     const out = [`# Slide ${n}: ${title}`, ''];
     out.push(...[...slide.matchAll(/^Text:(.*)$/gm)].map((m) => m[1].trim()), '');
-    slideSteps(work, slide).forEach((st, i) => {
-      out.push(`Step ${i + 1}: ${st.text}`, '```', ...st.refs.flatMap((r) => r.shown || []), '```', '');
-    });
     const sides = slideSides(work, slide);
     for (const [side, refs] of [['Before (old code)', sides[0]], ['After (new code)', sides[1]]]) {
       for (const r of refs) {
@@ -549,23 +515,16 @@ function cmdBuild(args) {
     const n = idx + 1;
     const title = slideTitle(slide);
     const out = { title, text: plain(planLine(slide, 'Text')), introduces: introduced(slide) };
-    const steps = slideSteps(work, slide);
     const sides = slideSides(work, slide);
-    for (const r of [...steps.flatMap((st) => st.refs), ...sides.flat()]) {
+    for (const r of sides.flat()) {
       if (r.shown === null) problems.push(`NO FILE ${r.path}: ${title}`);
       else if (!r.shown.length) problems.push(`NO CODE in ${r.path} L${r.from}-${r.to}: ${title} (only comments or blank lines)`);
     }
-    if (steps.length) {
-      out.steps = steps.map((st) => ({
-        text: plain(st.text), where: st.refs.map((r) => r.where).find(Boolean) || '', code: dedent(st.refs.flatMap((r) => r.shown || [])).join('\n'),
-      }));
-    } else {
-      ['before', 'after'].forEach((side, i) => {
-        const chunks = sideChunks(sides[i]);
-        if (chunks.length) out[side] = chunks;
-      });
-      if (/^off$/i.test(planLine(slide, 'Align'))) out.align = false;
-    }
+    ['before', 'after'].forEach((side, i) => {
+      const chunks = sideChunks(sides[i]);
+      if (chunks.length) out[side] = chunks;
+    });
+    if (/^off$/i.test(planLine(slide, 'Align'))) out.align = false;
     for (const t of slideTips(slide)) {
       const field = t.side === 'both' ? 'tips' : `${t.side}Tips`;
       (out[field] ||= {})[t.key] = plain(t.text);

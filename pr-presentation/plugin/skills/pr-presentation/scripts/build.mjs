@@ -77,24 +77,6 @@ function checkPanes(where, obj, errors) {
   return { before: paneCode(obj.before), after: paneCode(obj.after) };
 }
 
-// A step list: old code in run order, one sentence and a few lines for each step. Its tips match as Before.
-function checkSteps(where, obj, errors) {
-  let steps = obj.steps;
-  if (!empty(obj.before) || !empty(obj.after)) errors.push(`${where}: a slide with 'steps' has no 'before' or 'after'`);
-  if (!Array.isArray(steps) || steps.length < 2) {
-    errors.push(`${where}.steps: must be a list of at least 2 steps`);
-    steps = [];
-  }
-  steps.forEach((st, k) => {
-    if (!isObj(st) || Object.keys(st).some((x) => !['text', 'code', 'where'].includes(x))) {
-      errors.push(`${where}.steps[${k}]: a step is an object with 'text', 'code' and optional 'where'`);
-      return;
-    }
-    for (const f of ['text', 'code']) if (!nonEmpty(st[f])) errors.push(`${where}.steps[${k}]: '${f}' must be a non-empty string`);
-  });
-  return { before: steps.filter(isObj).map((st) => st.code || '').join('\n'), after: '' };
-}
-
 // Every tip key must exist in the pane(s) it applies to, or the tip would silently disappear.
 function checkTips(where, obj, code, errors) {
   for (const [field, sides] of [['tips', ['before', 'after']], ['beforeTips', ['before']], ['afterTips', ['after']]]) {
@@ -140,8 +122,7 @@ function validate(doc) {
       errors.push(`${where}: 'introduces' must be a list of names`);
       intro = [];
     }
-    if ('parts' in sl) errors.push(`${where}: 'parts' is not supported; make each screen a slide of its own`);
-    const code = 'steps' in sl ? checkSteps(where, sl, errors) : checkPanes(where, sl, errors);
+    const code = checkPanes(where, sl, errors);
     checkTips(where, sl, code, errors);
     const allCode = code.before + '\n' + code.after;
     for (const name of intro) {
@@ -226,12 +207,6 @@ function addLinks(doc, src, pr, paths) {
         }
       }
       if (cs.length) sl[side] = cs;
-    }
-    // A step links its first line to the base source, since step code is old code
-    for (const st of sl.steps || []) {
-      const first = st.code.split('\n').find((l) => l.trim()) || '';
-      const hit = first ? findInSources(first, join(src, 'base'), paths) : null;
-      st.links = [hit ? `https://github.com/${repo}/blob/${baseSha}/${hit[0]}#L${hit[1]}` : null];
     }
   }
 }
