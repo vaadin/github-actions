@@ -5,8 +5,9 @@
 //   hunks.mjs split    --diff pr.diff --out <WORK>
 //       Writes <WORK>/hunks.json and <WORK>/annotated.md: one "## H07" section per hunk with its diff.
 //   hunks.mjs chain    --work <WORK>
-//       Checks <WORK>/chain.md: every code hunk raises a question, every question has an answer from the code or
-//       an '- Unexplained:' line, and every link of the chain refers to the questions that prove it.
+//       Checks <WORK>/chain.md: every code hunk raises a question or a fact names it, every question has an
+//       answer from the code or an '- Unexplained:' line, and every link of the chain refers to the questions
+//       that prove it.
 //   hunks.mjs plan     --work <WORK>
 //       Checks <WORK>/plan.md: every code hunk ID under "Hunks:" or "Omitted:" with a reason (tests
 //       are not shown), tips of at most 20 words whose keys are in the code of their side, open-question tips that
@@ -514,8 +515,8 @@ function cmdBuild(args) {
   process.exit(node('check.mjs', deck, join(work, 'shots')) ? 0 : 1);
 }
 
-// What the investigation must keep: every code hunk raises a question, every question has an answer or an
-// '- Unexplained:' line, and every link of the chain refers to the questions that prove it.
+// What the investigation must keep: every code hunk raises a question or a fact names it, every question has
+// an answer or an '- Unexplained:' line, and every link of the chain refers to the questions that prove it.
 function cmdChain(args) {
   const work = args.work;
   const hunks = JSON.parse(read(join(work, 'hunks.json')));
@@ -527,10 +528,15 @@ function cmdChain(args) {
     console.log("NO QUESTIONS: write them under '## Questions' as '### Q1 (from H01): ...'");
     problems += 1;
   }
-  const started = new Set(questions.flatMap(([, src]) => src.match(/\bH\d{2,}\b/g) || []));
+  const links = [...(sections['Chain'] || '').matchAll(/^\d+\. (.*)$/gm)].map((m) => m[1]);
+  // A hunk that changes only comments or docs has no question; a fact of the chain names it instead
+  const covered = new Set([
+    ...questions.flatMap(([, src]) => src.match(/\bH\d{2,}\b/g) || []),
+    ...links.flatMap((link) => link.match(/\bH\d{2,}\b/g) || []),
+  ]);
   for (const h of hunks) {
-    if (h.kind === 'code' && !started.has(h.id)) {
-      console.log(`NO QUESTION from ${h.id} ${h.path} ${h.header}`);
+    if (h.kind === 'code' && !covered.has(h.id)) {
+      console.log(`NO QUESTION from ${h.id} ${h.path} ${h.header}: ask one, or name a comment or docs hunk in the fact it documents`);
       problems += 1;
     }
   }
@@ -547,7 +553,6 @@ function cmdChain(args) {
       problems += 1;
     }
   }
-  const links = [...(sections['Chain'] || '').matchAll(/^\d+\. (.*)$/gm)].map((m) => m[1]);
   if (!links.length) {
     console.log("NO CHAIN: write the facts in order under '## Chain'");
     problems += 1;

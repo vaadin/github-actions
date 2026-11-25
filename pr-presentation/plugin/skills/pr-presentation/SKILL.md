@@ -46,6 +46,10 @@ A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in 
 
 **Questions.** Start from the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. An answer can raise new questions. Ask them too, even when they lead to unchanged code: the chain needs the code that the change depends on.
 
+A hunk that changes only comments or docs raises no question of its own. Name it in the fact of the chain that it documents, after the questions: `(Q7, H06)`.
+
+Ask about a package outside the checkout, such as a dependency, only when the changed code depends on what it does. If the checkout cannot answer such a question, it is unexplained.
+
 **Answers.** Read the lines, then write the answer in one to three sentences, with the file and lines that prove it. Do not answer from memory. Do not guess: a question that nothing answers is unexplained. Stop when every question has an answer or is unexplained.
 
 Write `<WORK>/chain.md` in this format:
