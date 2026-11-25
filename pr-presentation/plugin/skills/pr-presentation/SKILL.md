@@ -82,8 +82,7 @@ Write `<WORK>/chain.md` in this format:
 2. Setting `selected` makes the observer `_selectedChanged` write `aria-selected` on the copy. (Q2)
 ````
 
-- Each question names the hunk or the question that raised it.
-- Keep only the facts the reader needs to follow what was wrong and how the change corrects it. If the change removes an attribute that must not be there, the chain needs the code that adds and removes it, not the reason the attribute is wrong in the accessibility standard.
+Keep only the facts the reader needs to follow what was wrong and how the change corrects it. If the change removes an attribute that must not be there, the chain needs the code that adds and removes it, not the reason the attribute is wrong in the accessibility standard.
 
 Check, correct each problem, repeat until it shows none:
 
@@ -193,9 +192,7 @@ Tips:
 - `selected.cloneNode(true)` (after): Suspected bug (Q3): the copy keeps the item's `id`, so two elements share it.
 ````
 
-- A code reference is `src/base/...` (old code) or `src/head/...` (new code), with lines and optional skips. A skipped range shows as one `...` line. Add `(context)` for unchanged code.
-- `Before:` is the left side, for old code. `After:` is the right side, for new code.
-- `Introduces:` lists the new things of the slide. A concept without a name is `idea: ...`.
+- A skipped range shows as one `...` line.
 - A tip key is exact text from the code on that side: a name, a call or a full line. `name@2` is the second occurrence. `(both)`, `(before)` and `(after)` tell the side.
 - Each code hunk is on a slide (`Hunks:`) or in `Omitted:` with a reason in parentheses.
 
