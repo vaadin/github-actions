@@ -2,7 +2,7 @@
 name: pr-presentation
 description: Turn a GitHub pull request into an HTML slide deck that helps a developer who does not know the changed code understand what the PR does and why, before they read the diff. Use when the user wants a high-level or "zoomed out" view of a PR, a guided tour or presentation of it, or an easier way to read a diff, even if they only share a PR link.
 argument-hint: <pr-url> <work-dir>
-allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(node *), Bash(git *)
+allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(node *), Bash(git *), Bash(gh *)
 ---
 
 ## Run
@@ -17,17 +17,15 @@ The steps pass their results in files under `<WORK>`. `<SKILL>` is the base dire
 
 ### 1. Collect
 
-```bash
-node <SKILL>/scripts/collect.mjs --pr <PR> [--repo <owner/repo>] --out <WORK>
-```
+The current directory is a checkout of the PR's repository. Use `gh` and `git`, one plain command per call: no `cd`, variables, `&&`, redirects or `mkdir`. If the collect fails, stop and report it.
 
-The code comes from the checkout of the PR's repository in the current directory. For another checkout, pass `--root <path>`. If the script finds no checkout, stop and report it.
+Fetch the base branch and the PR head, find the merge base, and make `<WORK>`:
 
-`<WORK>` holds:
+- `src/base/`, `src/head/`: detached worktrees at the merge base and at the PR head. Read and search them freely. Do not change them. `git worktree add` creates `<WORK>`.
+- `pr.diff`: the diff from the merge base to the head, written with `git diff --output`.
+- `pr.json`: `number`, `title`, `url` and `mergeBaseOid`.
 
-- `src/base/`, `src/head/`: the whole repository at the merge base of the PR and at its head. Read and search them freely. Do not change them.
-- `issues.md`: the issues that the PR links or refers to, for the questions that the code cannot answer.
-- `pr.json`, `pr.diff`.
+Do not read the PR description. The issues are the ones the PR links, and the ones the description refers to: extract only their numbers with `gh pr view --jq`. Read an issue only for a question that the code cannot answer.
 
 ### 2. Split into hunks
 
@@ -39,7 +37,7 @@ A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in 
 
 ### 3. Investigate
 
-**Code first.** The code is the best specification of the change. Do not trust what the author says about the PR: the description, the commit messages and the review comments tell what the author thinks the change does, so do not read them. Answer every question from the code in the checkouts under `<WORK>/src`: the diff, the code around it, callers, definitions, types, names. Tests only confirm an answer. Only a question that the code cannot answer sends you further: to the issues in `issues.md`, and to the git history of the touched lines in `src/base`. An answer from there is weaker than one from the code: say in "Looked at" where it comes from, and confirm in the code what you can. What this session already knows about the PR, from the user or from earlier work, does not count.
+**Code first.** The code is the best specification of the change. Do not trust what the author says about the PR: the description, the commit messages and the review comments tell what the author thinks the change does, so do not read them. Answer every question from the code in the checkouts under `<WORK>/src`: the diff, the code around it, callers, definitions, types, names. Tests only confirm an answer. Only a question that the code cannot answer sends you further: to the issues of step 1, and to the git history of the touched lines in `src/base`. An answer from there is weaker than one from the code: say in "Looked at" where it comes from, and confirm in the code what you can. What this session already knows about the PR, from the user or from earlier work, does not count.
 
 **Concepts.**
 
@@ -72,7 +70,7 @@ Write `<WORK>/chain.md` in this format:
 - New questions: none
 
 ### Q4 (from H03): Why does the change remove `aria-selected` from the copy, and not stop `_selectedChanged` from writing it?
-- Looked at: src/base/packages/item/src/vaadin-item-mixin.js L104-106, the linked issue in issues.md, the history of src/base/packages/select/src/vaadin-select-base-mixin.js L517-526
+- Looked at: src/base/packages/item/src/vaadin-item-mixin.js L104-106, the linked issue, the history of src/base/packages/select/src/vaadin-select-base-mixin.js L517-526
 - Unexplained: both places would fix the bug. The issue and the history do not tell why the change picks the copy.
 - New questions: none
 
