@@ -19,7 +19,7 @@
 //   hunks.mjs build    --work <WORK>
 //       Writes <WORK>/slides.json from plan.md and chain.md, the input of build.mjs: the code of each line range as
 //       the deck shows it (no comment lines, one "..." per skipped range, the common indentation of each file
-//       removed), the tips, and the open questions with the slide that holds their tip. See slides-json.md next to the README of pr-presentation.
+//       removed), the tips, and the open questions with the slide that holds their tip.
 //       Then builds <WORK>/deck.html with build.mjs, and saves one PNG per slide to <WORK>/shots with check.mjs,
 //       which reports the slides that overflow. Exits 1 if any of these steps found a problem.
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -459,7 +459,7 @@ function cmdBuild(args) {
   const chainFile = join(work, 'chain.md');
   const open = isFile(chainFile) ? openQuestions(read(chainFile)) : [];
   const problems = [];
-  const doc = { summary: plain(planLine(head, 'Summary')), omitted: parseOmitted(planLine(head, 'Omitted')),
+  const doc = { summary: plain(planLine(head, 'Summary')),
     open: open.map((o) => ({ ...o, text: plain(o.text) })), slides: [] };
   if (!doc.summary) problems.push("NO SUMMARY: write 'Summary: ...' at the top of plan.md");
   const tipSlide = {};
@@ -505,7 +505,7 @@ function cmdBuild(args) {
   }
   const out = join(work, 'slides.json');
   writeFileSync(out, JSON.stringify(doc, null, 1));
-  console.log(`Wrote ${out}: ${doc.slides.length} slides, ${doc.open.length} open question(s), ${Object.keys(doc.omitted).length} omitted hunk(s)`);
+  console.log(`Wrote ${out}: ${doc.slides.length} slides, ${doc.open.length} open question(s)`);
   console.log('');
   const deck = join(work, 'deck.html');
   const node = (script, ...rest) => spawnSync(process.execPath, [join(SCRIPTS, script), ...rest], { stdio: 'inherit' }).status === 0;

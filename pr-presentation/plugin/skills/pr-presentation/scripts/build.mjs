@@ -5,7 +5,7 @@
 //   build.mjs --pr pr.json --slides slides.json [--src src] --out page.html
 //
 // pr.json:     written by the skill when it collects the PR: number, title, url, mergeBaseOid
-// slides.json: written by hunks.mjs build from plan.md; see slides-json.md next to the README of pr-presentation
+// slides.json: written by hunks.mjs build from plan.md and chain.md
 // src:         the worktrees the skill collects (src/base, src/head); member lines then link to their line on GitHub
 //
 // The build only checks that the data is well-formed and that every tip key and introduced name
