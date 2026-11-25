@@ -41,7 +41,9 @@ A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in 
 
 **Concepts.**
 
-- Review note: a suspected bug or an unexplained question. It marks a place where the implementation must be trusted instead of understood, so it can show a problem in the PR.
+- Review note: a place where the implementation must be trusted instead of understood, so it can show a problem in the PR. It is a line in the entry of its question, of one of two kinds:
+  - `- Unexplained: <what nothing answers>`: the code, the issues and the history give no answer, for example no reason for a change, a value or a check. A question without an answer must have this line. It can also follow an answer that tells what the code does but not why.
+  - `- Suspected bug: <case>`: the code does something wrong in a case you found by reading it. Name the case. It is a finding from reading, not from running the code.
 - Chain: the facts in the order a new reader needs them: how the code works, what was wrong, how each change corrects it. Each fact follows from the facts before it and refers to the questions that prove it. Each code hunk is part of the chain. A hunk that no fact needs is unexplained.
 
 **Questions.** Start from the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. An answer can raise new questions. Ask them too, even when they lead to unchanged code: the chain needs the code that the change depends on.
@@ -82,9 +84,6 @@ Write `<WORK>/chain.md` in this format:
 
 - Each question names the hunk or the question that raised it.
 - Keep only the facts the reader needs to follow what was wrong and how the change corrects it. If the change removes an attribute that must not be there, the chain needs the code that adds and removes it, not the reason the attribute is wrong in the accessibility standard.
-- Review notes are lines in the entry of their question:
-  - `- Unexplained: <what nothing answers>`: the code, the issues and the history give no answer, for example no reason for a change, a value or a check. A question without an answer must have this line. It can also follow an answer that tells what the code does but not why.
-  - `- Suspected bug: <case>`: the code does something wrong in a case you found by reading it. Name the case. It is a finding from reading, not from running the code.
 
 Check, correct each problem, repeat until it shows none:
 
@@ -114,7 +113,7 @@ The reader reads the deck alone, in a browser, before the diff. Read `<SKILL>/re
 
 - Put the slides in the order of the chain. Each slide shows one or more facts and the lines from "Looked at" of their questions.
 - If a slide needs a new fact, add its question and answer to `chain.md` first.
-- Show each review note in a tip on the code it is about, starting with its kind and its questions: `Suspected bug (Q3): ...`, `Unexplained (Q4): ...`. It is for the author, not part of the explanation, and it is not a new thing. The page marks these tips and lists every review note of `chain.md` on a closing slide, also the ones without code on a slide.
+- Show each review note in a tip on the code it is about, starting with its kind and its questions: `Suspected bug (Q3): ...`, `Unexplained (Q4): ...`. It is not a new thing. The closing slide lists every review note of `chain.md`, also the ones without a tip.
 
 Kinds of slides:
 
