@@ -7,8 +7,6 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(node *), Bash(git *), 
 
 ## Run
 
-The work has two parts. The investigation reads the PR and writes `chain.md`: what the change does and why, proven from the code. The deck turns `chain.md` into slides: a plan, a reader agent that sees nothing but the slides and checks them, and scripts that build the deck from the plan.
-
 All files of the run are under `<WORK>`. `<SKILL>` is the base directory of this skill, printed as "Base directory for this skill" when it is invoked. `$0` is the PR URL. `$1` is `<WORK>`, the folder for all files of the run; create it if it does not exist. If an argument is missing, stop and report it.
 
 **Output.** The only result is the file `<WORK>/deck.html`. Nobody reads your replies and nobody answers questions during the run. When the deck is built and checked, stop with an empty reply: do not summarize the deck. If you cannot continue, stop and report why in one sentence.
@@ -25,7 +23,7 @@ Fetch the base branch and the PR head, find the merge base, and make `<WORK>`:
 - `pr.diff`: the diff from the merge base to the head.
 - `pr.json`: `number`, `title`, `url` and `mergeBaseOid`.
 
-Do not read the PR description. The issues are the ones the PR links, and the ones the description refers to: extract only their numbers with `gh pr view --jq`. Read an issue only for a question that the code cannot answer.
+With `gh pr view --jq`, extract only the numbers of the issues that the PR links or that its description refers to.
 
 ### 2. Split into hunks
 
