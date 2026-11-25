@@ -216,4 +216,4 @@ The reader knows nothing but the slides: not this skill, not the PR, not the pla
 node <SKILL>/scripts/hunks.mjs build --work <WORK>
 ```
 
-It builds `<WORK>/deck.html` from `plan.md` and `chain.md`, saves one PNG per slide to `<WORK>/shots`, and shows the problems: a tip key that is not found, a NOT SHOWN hunk, a slide that overflows. Correct each problem in `plan.md` or `chain.md`, never in `slides.json`, and build again. Then look at the PNGs of the title slide, the first slide, each slide that overflows and the closing slide.
+It builds `<WORK>/deck.html` from `plan.md` and `chain.md`, saves one PNG per slide to `<WORK>/shots`, and shows the problems: a tip key that is not found, a slide that overflows. Correct each problem in `plan.md` or `chain.md`, never in `slides.json`, and build again. Then look at the PNGs of the title slide, the first slide, each slide that overflows and the closing slide.
