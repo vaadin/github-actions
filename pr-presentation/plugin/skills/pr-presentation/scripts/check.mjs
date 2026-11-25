@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Screenshots every slide of a built deck with headless Chrome, so the deck can be checked without opening a browser window.
 // Usage: node check.mjs <deck.html> <out-dir>
+// Exits 1 when a slide overflows.
 // Needs Node 22+ (built-in WebSocket) and Chrome; set CHROME to its path if it is not in a standard place.
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -104,7 +105,10 @@ try {
     console.log(`${name}  ${info.title}${info.overflow ? '  [OVERFLOWS]' : ''}`);
     if (info.overflow) problems.push(name);
   }
-  if (problems.length) console.log(`\n${problems.length} slide(s) overflow: ${problems.join(', ')}`);
+  if (problems.length) {
+    console.log(`\n${problems.length} slide(s) overflow: ${problems.join(', ')}`);
+    process.exitCode = 1;
+  }
 } finally {
   ws?.close();
   proc.kill();

@@ -7,8 +7,6 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(node *), Bash(git *), 
 
 ## Run
 
-The work has two parts. The investigation reads the PR and writes `chain.md`: what the change does and why, proven from the code. The deck turns `chain.md` into slides: a plan, a reader agent that sees nothing but the slides and checks them, and scripts that build the deck from the plan.
-
 All files of the run are under `<WORK>`. `<SKILL>` is the base directory of this skill, printed as "Base directory for this skill" when it is invoked. `$0` is the PR URL. `$1` is `<WORK>`, the folder for all files of the run; create it if it does not exist. If an argument is missing, stop and report it.
 
 **Output.** The only result is the file `<WORK>/deck.html`. Nobody reads your replies and nobody answers questions during the run. When the deck is built and checked, stop with an empty reply: do not summarize the deck. If you cannot continue, stop and report why in one sentence.
@@ -25,7 +23,7 @@ Fetch the base branch and the PR head, find the merge base, and make `<WORK>`:
 - `pr.diff`: the diff from the merge base to the head.
 - `pr.json`: `number`, `title`, `url` and `mergeBaseOid`.
 
-Do not read the PR description. The issues are the ones the PR links, and the ones the description refers to: extract only their numbers with `gh pr view --jq`. Read an issue only for a question that the code cannot answer.
+With `gh pr view --jq`, extract only the numbers of the issues that the PR links or that its description refers to.
 
 ### 2. Split into hunks
 
@@ -33,7 +31,7 @@ Do not read the PR description. The issues are the ones the PR links, and the on
 node <SKILL>/scripts/hunks.mjs split --diff <WORK>/pr.diff --out <WORK>
 ```
 
-A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in diff order across all files, `H01`, `H02` and so on. Each hunk gets a kind from its path: `code`, `test`, `screenshot` or `generated`. Only `code` hunks must raise a question and have a place in the plan. Files of the other kinds are never shown on a slide. The script writes `hunks.json` and `annotated.md`, the diff with one `## H07 ...` section per hunk, and prints one line per hunk. Read `annotated.md` to see the hunks.
+A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in diff order across all files, `H01`, `H02` and so on. Each hunk gets a kind from its path: `code`, `test`, `screenshot` or `generated`. Only `code` hunks must raise a question. Files of the other kinds are never shown on a slide. The script writes `hunks.json` and `annotated.md`, the diff with one `## H07 ...` section per hunk, and prints one line per hunk. Read `annotated.md` to see the hunks.
 
 ### 3. Investigate
 
@@ -41,7 +39,9 @@ A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in 
 
 **Concepts.**
 
-- Review note: a suspected bug or an unexplained question. It marks a place where the implementation must be trusted instead of understood, so it can show a problem in the PR.
+- Review note: a place where the implementation must be trusted instead of understood, so it can show a problem in the PR. It is a line in the entry of its question, of one of two kinds:
+  - `- Unexplained: <what nothing answers>`: the code, the issues and the history give no answer, for example no reason for a change, a value or a check. A question without an answer must have this line. It can also follow an answer that tells what the code does but not why.
+  - `- Suspected bug: <case>`: the code does something wrong in a case you found by reading it. Name the case. It is a finding from reading, not from running the code.
 - Chain: the facts in the order a new reader needs them: how the code works, what was wrong, how each change corrects it. Each fact follows from the facts before it and refers to the questions that prove it. Each code hunk is part of the chain. A hunk that no fact needs is unexplained.
 
 **Questions.** Start from the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. An answer can raise new questions. Ask them too, even when they lead to unchanged code: the chain needs the code that the change depends on.
@@ -80,11 +80,7 @@ Write `<WORK>/chain.md` in this format:
 2. Setting `selected` makes the observer `_selectedChanged` write `aria-selected` on the copy. (Q2)
 ````
 
-- Each question names the hunk or the question that raised it.
-- Keep only the facts the reader needs to follow what was wrong and how the change corrects it. If the change removes an attribute that must not be there, the chain needs the code that adds and removes it, not the reason the attribute is wrong in the accessibility standard.
-- Review notes are lines in the entry of their question:
-  - `- Unexplained: <what nothing answers>`: the code, the issues and the history give no answer, for example no reason for a change, a value or a check. A question without an answer must have this line. It can also follow an answer that tells what the code does but not why.
-  - `- Suspected bug: <case>`: the code does something wrong in a case you found by reading it. Name the case. It is a finding from reading, not from running the code.
+Keep only the facts the reader needs to follow what was wrong and how the change corrects it. If the change removes an attribute that must not be there, the chain needs the code that adds and removes it, not the reason the attribute is wrong in the accessibility standard.
 
 Check, correct each problem, repeat until it shows none:
 
@@ -114,7 +110,7 @@ The reader reads the deck alone, in a browser, before the diff. Read `<SKILL>/re
 
 - Put the slides in the order of the chain. Each slide shows one or more facts and the lines from "Looked at" of their questions.
 - If a slide needs a new fact, add its question and answer to `chain.md` first.
-- Show each review note in a tip on the code it is about, starting with its kind and its questions: `Suspected bug (Q3): ...`, `Unexplained (Q4): ...`. It is for the author, not part of the explanation, and it is not a new thing. The page marks these tips and lists every review note of `chain.md` on a closing slide, also the ones without code on a slide.
+- Show each review note in a tip on the code it is about, starting with its kind and its questions: `Suspected bug (Q3): ...`, `Unexplained (Q4): ...`. It is not a new thing. The closing slide lists every review note of `chain.md`, also the ones without a tip.
 
 Kinds of slides:
 
@@ -125,10 +121,15 @@ Kinds of slides:
 
 #### Rules
 
-One slide, one screen, one idea:
+Limits, checked by `hunks.mjs plan`:
 
 - A slide fits one screen. If not, make the code smaller or continue on the next slide.
-- A slide has a maximum of 4 new things. Explain each on the slide where it first occurs, and do not use it before that slide.
+- A slide has a maximum of 4 new things.
+- A tip has one point and a maximum of 20 words.
+
+One idea per slide:
+
+- Explain each new thing on the slide where it first occurs, and do not use it before that slide.
 - Each slide text is clear on its own. Do not refer to other slides by number, or with "continuing" or "as shown before".
 
 Code:
@@ -145,7 +146,7 @@ Conditions: when the change touches a condition (a selector, an `if`, a flag che
 Text and tips:
 
 - A title of 2 to 5 words and one sentence of about 25 words. Everything else goes in tips.
-- A tip on each changed line and each new name: one point, a maximum of 20 words. Do not write a tip that only tells what a line does.
+- A tip on each changed line and each new name. Do not write a tip that only tells what a line does.
 - No tips on unchanged lines, except a line the reader would not connect to the change without one. That tip names the changed line it explains.
 - Short sentences, simple words, no em dashes. Many readers are not native speakers of English.
 
@@ -189,13 +190,11 @@ Tips:
 - `selected.cloneNode(true)` (after): Suspected bug (Q3): the copy keeps the item's `id`, so two elements share it.
 ````
 
-- A code reference is `src/base/...` (old code) or `src/head/...` (new code), with lines and optional skips. A skipped range shows as one `...` line. Add `(context)` for unchanged code.
-- `Before:` is the left side, for old code. `After:` is the right side, for new code.
-- `Introduces:` lists the new things of the slide. A concept without a name is `idea: ...`.
+- A skipped range shows as one `...` line.
 - A tip key is exact text from the code on that side: a name, a call or a full line. `name@2` is the second occurrence. `(both)`, `(before)` and `(after)` tell the side.
 - Each code hunk is on a slide (`Hunks:`) or in `Omitted:` with a reason in parentheses.
 
-Check, correct each problem, repeat until it shows none:
+Check, correct each problem, repeat until it shows none. Without problems, it also writes the slides for the reader:
 
 ```bash
 node <SKILL>/scripts/hunks.mjs plan --work <WORK>
@@ -207,20 +206,14 @@ Then read only the titles and the slide texts in order. They must tell the chain
 
 The reader knows nothing but the slides: not this skill, not the PR, not the plan or the chain, not that there were earlier rounds.
 
-1. Run `node <SKILL>/scripts/hunks.mjs reader --work <WORK>`. It writes one numbered file per slide to `<WORK>/reader/slides/`.
-2. Start a new agent in the foreground (`run_in_background: false`) with `model: "sonnet"`, and wait for its reply. Its prompt is the full text of `<SKILL>/references/reader.md`, with `<REPO>` replaced by `<WORK>/src/head`, `<SLIDES>` by `<WORK>/reader/slides` and `<NOTES>` by `<WORK>/reader/reading.md`. Add nothing else.
-3. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove it. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. Review note tips stay. Keep the slide rules; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
-4. Repeat with a new reader agent: do not continue the old one with `SendMessage`. Stop when `reading.md` has no items, or after two corrections.
+1. Start a new agent in the foreground (`run_in_background: false`) with `model: "sonnet"`, and wait for its reply. Its prompt is the full text of `<SKILL>/references/reader.md`, with `<REPO>` replaced by `<WORK>/src/head`, `<SLIDES>` by `<WORK>/reader/slides` and `<NOTES>` by `<WORK>/reader/reading.md`. Add nothing else.
+2. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove that term, claim or step from the slide. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. Review note tips stay. Keep the slide rules; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
+3. Repeat with a new reader agent: do not continue the old one with `SendMessage`. Stop when `reading.md` has no items, or after two corrections.
 
 ### 6. Build
 
 ```bash
 node <SKILL>/scripts/hunks.mjs build --work <WORK>
-node <SKILL>/scripts/build.mjs --pr <WORK>/pr.json --slides <WORK>/slides.json --src <WORK>/src --out <WORK>/deck.html
-node <SKILL>/scripts/hunks.mjs slides --work <WORK>
-node <SKILL>/scripts/check.mjs <WORK>/deck.html <WORK>/shots
 ```
 
-`hunks.mjs build` writes `slides.json` from `plan.md` and `chain.md`. `hunks.mjs slides` shows which changed lines are on no slide. `check.mjs` saves one PNG per slide to `<WORK>/shots` and shows the slides that overflow.
-
-Correct each problem in `plan.md` or `chain.md`, never in `slides.json`, and build again: a tip key that is not found, a NOT SHOWN hunk, a slide that overflows. Then look at the PNGs of the title slide, the first slide, each slide that overflows and the closing slide.
+It builds `<WORK>/deck.html` from `plan.md` and `chain.md`, saves one PNG per slide to `<WORK>/shots`, and shows the problems: a tip key that is not found, a slide that overflows. Correct each problem in `plan.md` or `chain.md`, never in `slides.json`, and build again. Then look at the PNGs of the title slide, the first slide, each slide that overflows and the closing slide.
