@@ -76,9 +76,13 @@ try {
 
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 810, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: pathToFileURL(resolve(deck)).href });
-  await evaluate(`new Promise((res) => {
+  // A deck whose script fails never starts Shower: give up after 10 s instead of waiting forever
+  await evaluate(`new Promise((res, rej) => {
+    const end = Date.now() + 10000;
     const ready = () => document.fonts.ready.then(() => setTimeout(res, 300));
-    const wait = () => (window.shower && shower.slides) ? ready() : setTimeout(wait, 50);
+    const wait = () => (window.shower && shower.slides) ? ready()
+      : Date.now() > end ? rej(new Error('The deck did not start within 10 s: check its script in a browser'))
+      : setTimeout(wait, 50);
     wait();
   })`);
   await evaluate(`document.head.appendChild(document.createElement('style')).textContent = '.slide { transition: none !important; }'`);

@@ -626,7 +626,7 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
     // Changed code on top, old left and new right; all context of the slide below it, across both columns,
     // the same code shown once. Context never takes a column, so a side with only context leaves the
     // changed code of the other side at the full width.
-    function changed(chunks) { return chunks.filter(function (c) { return !c.context && c.recap !== true; }); }
+    function changed(chunks) { return chunks.filter(function (c) { return !c.context; }); }
     var bc = changed(p.before.chunks), ac = changed(p.after.chunks), seen = {};
     var ctx = p.before.chunks.concat(p.after.chunks).filter(function (c) {
       if (bc.indexOf(c) >= 0 || ac.indexOf(c) >= 0) return false;

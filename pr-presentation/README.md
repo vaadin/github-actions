@@ -52,7 +52,8 @@ The calling workflow must, before invoking this action:
   the skill fetches the base branch and the PR head itself and computes the
   merge base in the checkout. Any ref is fine. Credential persistence must
   stay enabled (the default) so that fetch works on a private repository.
-- **Set up Node** (≥ 20; preinstalled on GitHub runners, but callers typically
+- **Set up Node** (≥ 22, for the built-in WebSocket of the screenshot
+  script; preinstalled on GitHub runners, but callers typically
   pin a version).
 
 The runner needs Chrome for the slide screenshots of the build step;

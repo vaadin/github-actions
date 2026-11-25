@@ -9,7 +9,9 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(node *), Bash(git *)
 
 The work has two parts. The investigation (steps 1 to 3) reads the PR and writes `chain.md`: what the change does and why, proven from the code. The deck (steps 4 to 6) turns `chain.md` into slides: a plan, a reader agent that sees nothing but the slides and checks them, and scripts that build the deck from the plan.
 
-The steps pass their results in files under `<WORK>`. `<SKILL>` is the base directory of this skill, printed as "Base directory for this skill" when it is invoked. `$0` is the PR URL. `$1` is `<WORK>`, the folder for all files of the run; create it if it does not exist. If an argument is missing, stop and report it.
+The steps pass their results in files under `<WORK>`. `<SKILL>` is the base directory of this skill, printed as "Base directory for this skill" when it is invoked. `$0` is the PR URL. `$1` is `<WORK>`, the folder for all files of the run; `collect.mjs` creates it. If an argument is missing, stop and report it.
+
+**Commands.** Run each command of this skill in its own Bash call, exactly as written here, with the paths filled in: no `cd`, no shell variables, no `&&`, `;` or redirects. Write files with the Write tool. If a call is denied, run it again as a plain command.
 
 **Output.** The only result is the file `<WORK>/deck.html`. Nobody reads your replies and nobody answers questions during the run. When step 6 is done, stop with an empty reply: do not summarize the deck. If a step cannot continue, stop and report why in one sentence.
 
@@ -44,7 +46,7 @@ A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in 
 **Concepts.**
 
 - Review note: a suspected bug or an unexplained question. It marks a place where the implementation must be trusted instead of understood, so it can show a problem in the PR.
-- Chain: the facts in the order a new reader needs them: how the code works, what was wrong, how each change corrects it. Each fact follows from the facts before it and refers to the questions that prove it. Each code hunk is part of the chain. A hunk that no fact needs is unexplained.
+- Chain: the facts in the order a new reader needs them: how the code works, what was wrong, how each change corrects it. Each fact follows from the facts before it and refers to the questions that prove it. Each code hunk is part of the chain: a fact refers to one of its questions. If no fact needs a hunk, its question gets an `- Unexplained:` line that tells what nothing explains about the hunk.
 
 **Questions.** Start from the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. An answer can raise new questions. Ask them too, even when they lead to unchanged code: the chain needs the code that the change depends on.
 
@@ -146,7 +148,7 @@ Conditions: when the change touches a condition (a selector, an `if`, a flag che
 
 Text and tips:
 
-- A title of 2 to 5 words and one sentence of about 25 words. Everything else goes in tips.
+- A title of 2 to 5 words and one sentence of a maximum of 30 words, on one `Text:` line. Everything else goes in tips.
 - A tip on each changed line and each new name: one point, a maximum of 20 words. Do not write a tip that only tells what a line does.
 - No tips on unchanged lines, except a line the reader would not connect to the change without one. That tip names the changed line it explains.
 - Short sentences, simple words, no em dashes. Many readers are not native speakers of English.
@@ -196,6 +198,7 @@ Tips:
 - `Introduces:` lists the new things of the slide. A concept without a name is `idea: ...`.
 - A tip key is exact text from the code on that side: a name, a call or a full line. `name@2` is the second occurrence. `(both)`, `(before)` and `(after)` tell the side.
 - Each code hunk is on a slide (`Hunks:`) or in `Omitted:` with a reason in parentheses.
+- A slide has `Steps:` or `Before:`/`After:`, never both.
 
 Check, correct each problem, repeat until it shows none:
 
@@ -215,6 +218,8 @@ The reader knows nothing but the slides: not this skill, not the PR, not the pla
 4. Repeat with a new reader agent: do not continue the old one with `SendMessage`. Stop when `reading.md` has no items, or after two corrections.
 
 ### 6. Build
+
+Run these four commands one by one, each in its own Bash call:
 
 ```bash
 node <SKILL>/scripts/hunks.mjs build --work <WORK>

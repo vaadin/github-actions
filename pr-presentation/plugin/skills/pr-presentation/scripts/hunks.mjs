@@ -6,12 +6,15 @@
 //       Writes <WORK>/hunks.json and <WORK>/annotated.md: one "## H07" section per hunk with its diff.
 //   hunks.mjs chain    --work <WORK>
 //       Checks <WORK>/chain.md: every code hunk raises a question, every question has an answer from the code or
-//       an '- Unexplained:' line, and every link of the chain refers to the questions that prove it.
+//       an '- Unexplained:' line, every link of the chain refers to the questions that prove it, and every code
+//       hunk has a question that a link refers to, or a question from it with an '- Unexplained:' line.
 //   hunks.mjs plan     --work <WORK>
 //       Checks <WORK>/plan.md: every code hunk ID under "Hunks:" or "Omitted:" with a reason (tests
 //       are not shown), tips of at most 20 words whose keys are in the code of their side, open-question tips that
 //       name an open question of chain.md with the same kind, at most 4 new things per slide, each name in
-//       Introduces in the slide's code, line ranges that start at real code, and each slide estimated to fit one screen.
+//       Introduces in the slide's code, line ranges that start at real code, each slide estimated to fit one screen,
+//       a title of 2 to 5 words, one Text line of at most 30 words, Steps or Before/After but not both, and no line
+//       under Tips, Before, After or Steps that the build would not read.
 //   hunks.mjs reader   --work <WORK>
 //       Writes <WORK>/reader/slides/: the deck as the reader sees it (title slide, titles, sentences, code, tips), from plan.md, without the notes, one numbered file per slide. The reader check of the skill
 //       sees only this folder, one file at a time. Moves a <WORK>/reader/reading.md left by an earlier reader to
@@ -49,6 +52,9 @@ const OPEN_TIP_RE = new RegExp(`^(${KINDS_RE}) \\((Q\\d+(?:,\\s*Q\\d+)*)\\):`);
 const TIP_RE = /^- (``?)(.+?)\1 \((before|after|both)\): (.+)$/gm;
 // "- src/head/<path> L12-20, skip L14-16 (context)" under Before:, After: or a step
 const REF_RE = /^\s*- (src\/(?:base|head)\/\S+) L(\d+)(?:-(\d+))?((?:, skip L\d+-\d+)*)(.*)$/gm;
+// One line of a block, for the check that the build reads every line
+const TIP_LINE_RE = new RegExp(TIP_RE.source);
+const REF_LINE_RE = new RegExp(REF_RE.source);
 
 const splitlines = (text) => { const a = text.split(/\r?\n/); if (a.length && a.at(-1) === '') a.pop(); return a; };
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&');
@@ -213,6 +219,8 @@ function cmdSlides(args) {
 }
 
 const TIP_WORDS = 20;
+const TEXT_WORDS = 30;
+const TITLE_WORDS = [2, 5];
 const MAX_NEW = 4;
 // Height of one screen in the page's pixels, and the parts of a slide, measured on built decks. The line and
 // text sizes are scaled from those measures to the current fonts: 20px text, 16px code, 14px context code.
@@ -338,7 +346,7 @@ function parseOmitted(line) {
 // The code references of the Before and After side of one slide in plan.md.
 function slideSides(work, slide) {
   return ['Before', 'After'].map((side) => {
-    const m = new RegExp(`^${side}:\\n((?:- .*\\n?)*)`, 'm').exec(slide);
+    const m = new RegExp(`^${side}:\\n((?:[ \\t]*- .*\\n?)*)`, 'm').exec(slide);
     return m ? planRefs(work, m[1]) : [];
   });
 }
@@ -354,6 +362,25 @@ function slideSteps(work, slide) {
     else if (steps.length) steps.at(-1).block += line;
   }
   return steps.map((st) => ({ text: st.text, refs: planRefs(work, st.block) }));
+}
+
+// The lines of the "Name:" block of a slide that the parsers above read: list items, and numbered steps.
+function blockLines(slide, name) {
+  const m = new RegExp(`^${name}:\\n((?:(?:\\d+\\. |[ \\t]*- ).*\\n?)*)`, 'm').exec(slide);
+  return m ? m[1].split('\n').filter((l) => l.trim()) : [];
+}
+
+// The lines under Tips, Before, After and Steps that the build would drop: [block, line, the expected form].
+function badLines(slide) {
+  const bad = [];
+  for (const l of blockLines(slide, 'Tips')) if (!TIP_LINE_RE.test(l)) bad.push(['Tips', l, '- `key` (before|after|both): text']);
+  for (const side of ['Before', 'After']) {
+    for (const l of blockLines(slide, side)) if (!REF_LINE_RE.test(l)) bad.push([side, l, '- src/base|head/<path> L12-20, skip L14-16 (context)']);
+  }
+  for (const l of blockLines(slide, 'Steps')) {
+    if (!/^\d+\. \S/.test(l) && !REF_LINE_RE.test(l)) bad.push(['Steps', l, '1. sentence, then   - src/base/<path> L12-14 (in: method)']);
+  }
+  return bad;
 }
 
 // Estimated height of a step list: heading and text, then each step with its sentence, code and arrow.
@@ -417,10 +444,31 @@ function cmdPlan(args) {
       console.log(`TOO MANY NEW THINGS ${items.length}: ${title}`);
       problems += 1;
     }
+    const n = words(title).length;
+    if (n < TITLE_WORDS[0] || n > TITLE_WORDS[1]) {
+      console.log(`TITLE ${n} words, not ${TITLE_WORDS.join(' to ')}: ${title}`);
+      problems += 1;
+    }
+    const texts = [...slide.matchAll(/^Text:(.*)$/gm)].length;
+    const textLine = planLine(slide, 'Text');
+    if (texts !== 1 || !textLine) {
+      console.log(`TEXT ${texts} 'Text:' lines: ${title} (write one sentence on one 'Text:' line)`);
+      problems += 1;
+    } else if (words(textLine).length > TEXT_WORDS) {
+      console.log(`LONG TEXT ${words(textLine).length} words of ${TEXT_WORDS}: ${title} (move details to tips)`);
+      problems += 1;
+    }
+    for (const [block, line, form] of badLines(slide)) {
+      console.log(`BAD LINE under ${block}: ${repr(line.trim().slice(0, 80))}: ${title} (write '${form}')`);
+      problems += 1;
+    }
     // The slide must fit one screen, its line ranges must start at real code, and its names must be in its code
     let sides = slideSides(work, slide);
     const steps = slideSteps(work, slide);
-    const textLine = planLine(slide, 'Text');
+    if (steps.length && sides.some((refs) => refs.length)) {
+      console.log(`STEPS AND PANES: ${title} (a bug slide has only 'Steps:'; put Before/After on the next slide)`);
+      problems += 1;
+    }
     const height = steps.length ? stepsHeight(textLine, steps) : slideHeight(textLine, sides);
     if (steps.length) sides = [steps.flatMap((st) => st.refs), []];
     if (height > SCREEN) {
@@ -472,7 +520,8 @@ function cmdPlan(args) {
     }
   }
   console.log(`${problems} problem(s): every code hunk on a slide or omitted with a reason, tips at most ${TIP_WORDS} words ` +
-    `with keys in the code, open-question tips from chain.md, at most ${MAX_NEW} new things per slide, names in Introduces in the code, each slide fits one screen`);
+    `with keys in the code, open-question tips from chain.md, at most ${MAX_NEW} new things per slide, names in Introduces in the code, ` +
+    `each slide fits one screen, titles of ${TITLE_WORDS.join(' to ')} words, one Text line of at most ${TEXT_WORDS} words, every block line readable`);
   process.exit(problems ? 1 : 0);
 }
 
@@ -495,7 +544,7 @@ function cmdReader(args) {
     const n = idx + 1;
     const title = slideTitle(slide);
     const out = [`# Slide ${n}: ${title}`, ''];
-    out.push(...[...slide.matchAll(/^Text:(.*)$/gm)].map((m) => m[1].trim()), '');
+    out.push(planLine(slide, 'Text'), '');
     slideSteps(work, slide).forEach((st, i) => {
       out.push(`Step ${i + 1}: ${st.text}`, '```', ...st.refs.flatMap((r) => r.shown || []), '```', '');
     });
@@ -551,6 +600,7 @@ function cmdBuild(args) {
     const out = { title, text: plain(planLine(slide, 'Text')), introduces: introduced(slide) };
     const steps = slideSteps(work, slide);
     const sides = slideSides(work, slide);
+    if (steps.length && sides.some((refs) => refs.length)) problems.push(`STEPS AND PANES: ${title} (a slide has 'Steps:' or 'Before:'/'After:', not both)`);
     for (const r of [...steps.flatMap((st) => st.refs), ...sides.flat()]) {
       if (r.shown === null) problems.push(`NO FILE ${r.path}: ${title}`);
       else if (!r.shown.length) problems.push(`NO CODE in ${r.path} L${r.from}-${r.to}: ${title} (only comments or blank lines)`);
@@ -611,6 +661,13 @@ function cmdChain(args) {
     }
   }
   const items = openQuestions(text);
+  // The hunks a question starts from, directly or through the questions that raised it
+  const from = new Map(questions.map(([q, src]) => [q, src.match(/\b(?:H\d{2,}|Q\d+)\b/g) || []]));
+  const rootsOf = (q, seen = new Set()) => {
+    if (seen.has(q)) return [];
+    seen.add(q);
+    return (from.get(q) || []).flatMap((s) => (s.startsWith('H') ? [s] : rootsOf(s, seen)));
+  };
   for (const [q, , body] of questions) {
     const answer = /^- Answer:\s*(\S.*)$/m.exec(body);
     const looked = /^- Looked at:\s*(\S.*)$/m.exec(body);
@@ -634,6 +691,18 @@ function cmdChain(args) {
       problems += 1;
     }
   });
+  // Every code hunk is part of the chain, or a question from it says what nothing explains
+  const used = new Set(links.flatMap((link) => link.match(/\bQ\d+\b/g) || []));
+  const unexplained = new Set(items.filter((it) => it.kind === 'Unexplained').flatMap((it) => it.questions));
+  for (const h of hunks) {
+    if (h.kind !== 'code' || !started.has(h.id)) continue;
+    const qs = questions.map(([q]) => q).filter((q) => rootsOf(q).includes(h.id));
+    if (!qs.some((q) => used.has(q) || unexplained.has(q))) {
+      console.log(`NOT IN CHAIN ${h.id} ${h.path}: no link refers to its questions (${qs.join(', ')}); ` +
+        "add the fact, or add '- Unexplained:' to its question");
+      problems += 1;
+    }
+  }
   console.log(`${problems} problem(s): ${questions.length} questions, ${links.length} links in the chain, ${items.length} open question(s)`);
   process.exit(problems ? 1 : 0);
 }
