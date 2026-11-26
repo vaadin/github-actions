@@ -7,9 +7,9 @@ links the deck from one comment on the PR:
 
 1. **Present** — one Claude Code session runs the
    [pr-presentation skill](plugin/skills/pr-presentation/SKILL.md) with the
-   read-only token: the skill collects the PR into a work folder (metadata,
-   linked issues, the diff, two worktrees at the merge base and the head),
-   investigates the code, plans the slides and builds `deck.html`.
+   read-only token: the skill collects the PR into a work folder with `gh`
+   and `git` (metadata, the diff, two worktrees at the merge base and the
+   head), investigates the code, plans the slides and builds `deck.html`.
 2. **Upload & comment** — the deck is uploaded as a plain HTML artifact
    (`archive: false`, so the artifact URL opens it in the browser), and a
    posting step creates or updates one comment on the PR with the comment

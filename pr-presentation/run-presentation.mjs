@@ -6,13 +6,14 @@
  * The skill is loaded from the action's plugin directory (--plugin-dir) and
  * invoked as `/pr-presentation <pr url> <work folder>`, as a user would. The
  * session's working directory is the checkout, so the skill's collect step
- * finds it and the repository's CLAUDE.md loads. The work folder and the
+ * fetches into it and the repository's CLAUDE.md loads. The work folder and the
  * skill directory are additional directories, so the session can read the
  * skill's references and write the run's files.
  *
  * The session gets the tools the skill names and no web or timer tools. Bash
- * allows node, which runs the skill's scripts, and git. The caller's read-only
- * job token, passed as GH_TOKEN, bounds what git can do.
+ * allows node, which runs the skill's scripts, git, and gh, which reads the PR
+ * and its issues. The caller's read-only job token, passed as GH_TOKEN, bounds
+ * what git and gh can do.
  *
  * A session that exits non-zero, times out or leaves no deck fails the run.
  *
@@ -41,9 +42,10 @@ const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const TOOLS = 'Read,Write,Edit,Glob,Grep,Bash,Agent';
 const ALLOWED_TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Agent'];
 
-// Bash commands auto-approved: node runs the skill's scripts, git reads the history.
+// Bash commands auto-approved: node runs the skill's scripts, git reads the history,
+// gh reads the PR and its issues.
 // An auto-approve list, not a capability boundary.
-const ALLOWED_BASH_COMMANDS = ['node', 'git'];
+const ALLOWED_BASH_COMMANDS = ['node', 'git', 'gh'];
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_DIR = path.join(HERE, 'plugin');

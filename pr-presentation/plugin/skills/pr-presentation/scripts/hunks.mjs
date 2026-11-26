@@ -12,31 +12,27 @@
 //       are not shown), tips of at most 20 words whose keys are in the code of their side, open-question tips that
 //       name an open question of chain.md with the same kind, at most 4 new things per slide, each name in
 //       Introduces in the slide's code, line ranges that start at real code, and each slide estimated to fit one screen.
-//   hunks.mjs reader   --work <WORK>
-//       Writes <WORK>/reader/slides/: the deck as the reader sees it (title slide, titles, sentences, code, tips), from plan.md, without the notes, one numbered file per slide. The reader check of the skill
-//       sees only this folder, one file at a time. Moves a <WORK>/reader/reading.md left by an earlier reader to
-//       reading-1.md, reading-2.md and so on, so each round's notes stay.
-//       Also writes <WORK>/reader.md, the whole deck, for the orchestrator.
+//       Without problems, it also writes <WORK>/reader/slides/: the deck as the reader sees it (title slide, titles,
+//       sentences, code, tips), without the notes, one numbered file per slide. The reader check of the skill sees
+//       only this folder, one file at a time. A <WORK>/reader/reading.md left by an earlier reader moves to
+//       reading-1.md, reading-2.md and so on, so each round's notes stay. <WORK>/reader.md is the whole deck.
 //   hunks.mjs build    --work <WORK>
 //       Writes <WORK>/slides.json from plan.md and chain.md, the input of build.mjs: the code of each line range as
 //       the deck shows it (no comment lines, one "..." per skipped range, the common indentation of each file
 //       removed), the tips, and the open questions with the slide that holds their tip.
-//       See references/slides-json.md.
-//   hunks.mjs slides   --work <WORK>
-//       Checks which changed lines of each hunk appear in the code of <WORK>/slides.json.
-//       A code hunk with none of its lines on a slide fails, unless slides.json lists it in "omitted".
-//
-// Lines without a name in them (braces, blank lines), imports and comments are not checked: the slides
-// leave them out on purpose. Test files, screenshots and generated files are listed but not required.
+//       Then builds <WORK>/deck.html with build.mjs, and saves one PNG per slide to <WORK>/shots with check.mjs,
+//       which reports the slides that overflow. Exits 1 if any of these steps found a problem.
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 const TEST_RE = /(^|\/)(src\/test\/|test\/|tests\/|__tests__\/|integration-tests\/|test-fixtures?\/)|(Test|IT)\.java$|\.(test|spec)\.[jt]sx?$/;
 const IMAGE_RE = /\.(png|jpe?g|gif|webp|svg)$/i;
 const GENERATED_RE = /(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|\.snap)$/;
 const COMMENT_RE = /^(\/\/|\/\*|\*|<!--|#\s)/;
-const GAP_RE = /(?<![\w$.])(?:\.\.\.|…)(?![\w$.])/;
+const SCRIPTS = dirname(fileURLToPath(import.meta.url));
 
 // The kinds of an open question, as chain.md lists them and as a tip starts
 const OPEN_KINDS = ['Suspected bug', 'Unexplained'];
@@ -126,87 +122,11 @@ function annotatedMd(hunks) {
   return out.join('\n');
 }
 
-function checked(line) {
-  const s = line.trim();
-  return /[\w$]{2,}/.test(s) && !COMMENT_RE.test(s) && !/^(import|package)\b/.test(s);
-}
-
-const squash = (s) => s.replace(/\s+/g, '');
-
-// All code lines on one side of every slide.
-function paneLines(slides, side) {
-  const out = [];
-  for (const sl of slides.slides || []) {
-    const v = sl[side];
-    const list = v == null || v === '' ? [] : Array.isArray(v) ? v : [v];
-    for (const c of list) {
-      const code = typeof c === 'string' ? c : c.code || '';
-      out.push(...code.split('\n'));
-    }
-  }
-  return out;
-}
-
-// A diff line is shown when it is in the pane code, ignoring whitespace (so a long line split in two still
-// counts), or when a slide line with '...' gaps matches it.
-function shownIn(line, lines, joined) {
-  const s = squash(line);
-  // Short lines would match inside any longer code, so they must match a whole slide line
-  if (s.length >= 25 ? joined.includes(s) : lines.some((l) => squash(l) === s)) return true;
-  for (const l of lines) {
-    if (GAP_RE.test(l)) {
-      const pieces = l.split(GAP_RE).map((p) => escapeRe(squash(p)));
-      if (pieces.length > 1 && new RegExp('^' + pieces.join('.*?') + '$').test(s)) return true;
-    }
-  }
-  return false;
-}
-
 function cmdSplit(args) {
   const hunks = split(read(args.diff));
   writeFileSync(join(args.out, 'hunks.json'), JSON.stringify(hunks, null, 1));
   writeFileSync(join(args.out, 'annotated.md'), annotatedMd(hunks));
   for (const h of hunks) console.log(`${h.id}  ${h.kind.padEnd(10)} +${h.add.length} -${h.del.length}  ${h.path}`);
-}
-
-function cmdSlides(args) {
-  const work = args.work;
-  const hunks = JSON.parse(read(join(work, 'hunks.json')));
-  const slides = JSON.parse(read(join(work, 'slides.json')));
-  const omitted = slides.omitted || {};
-  const sides = {};
-  for (const [side, key] of [['before', 'del'], ['after', 'add']]) {
-    const lines = paneLines(slides, side);
-    sides[key] = [lines, squash(lines.join(''))];
-  }
-  const failed = [];
-  const partial = [];
-  let total = 0;
-  let shownTotal = 0;
-  for (const h of hunks) {
-    if (h.kind !== 'code') continue;
-    const rows = [];
-    for (const [sign, key] of [['-', 'del'], ['+', 'add']]) for (const l of h[key]) if (checked(l)) rows.push([sign, l]);
-    if (!rows.length) continue;
-    const missing = rows.filter(([sign, l]) => !shownIn(l, ...sides[sign === '-' ? 'del' : 'add']));
-    total += rows.length;
-    shownTotal += rows.length - missing.length;
-    if (h.id in omitted) continue;
-    if (missing.length === rows.length) failed.push([h, missing, rows.length]);
-    else if (missing.length) partial.push([h, missing, rows.length]);
-  }
-  for (const [label, items] of [['NOT SHOWN', failed], ['PARTLY SHOWN', partial]]) {
-    for (const [h, missing, n] of items) {
-      console.log(`${label} ${h.id} ${h.path}  ${n - missing.length}/${n} lines shown`);
-      for (const [sign, l] of missing.slice(0, 8)) console.log(`    ${sign} ${l.trim().slice(0, 110)}`);
-      if (missing.length > 8) console.log(`    ... ${missing.length - 8} more`);
-    }
-  }
-  for (const [hid, why] of Object.entries(omitted)) console.log(`OMITTED ${hid}: ${why}`);
-  const others = hunks.filter((h) => h.kind !== 'code');
-  if (others.length) console.log('Not required: ' + others.map((h) => `${h.id} (${h.kind})`).join(', '));
-  console.log(`${shownTotal}/${total} checked lines of code hunks are on the slides; ${failed.length} hunk(s) not shown, ${partial.length} partly shown`);
-  process.exit(failed.length ? 1 : 0);
 }
 
 const TIP_WORDS = 20;
@@ -442,12 +362,12 @@ function cmdPlan(args) {
   }
   console.log(`${problems} problem(s): every code hunk on a slide or omitted with a reason, tips at most ${TIP_WORDS} words ` +
     `with keys in the code, open-question tips from chain.md, at most ${MAX_NEW} new things per slide, names in Introduces in the code, each slide fits one screen`);
-  process.exit(problems ? 1 : 0);
+  if (problems) process.exit(1);
+  writeReader(work);
 }
 
 // Write <WORK>/reader/, one file per slide, and <WORK>/reader.md: the deck as the reader sees it, without the planner's notes.
-function cmdReader(args) {
-  const work = args.work;
+function writeReader(work) {
   const text = read(join(work, 'plan.md'));
   const head = planHead(text);
   const summary = planLine(head, 'Summary');
@@ -507,7 +427,7 @@ function cmdBuild(args) {
   const chainFile = join(work, 'chain.md');
   const open = isFile(chainFile) ? openQuestions(read(chainFile)) : [];
   const problems = [];
-  const doc = { summary: plain(planLine(head, 'Summary')), omitted: parseOmitted(planLine(head, 'Omitted')),
+  const doc = { summary: plain(planLine(head, 'Summary')),
     open: open.map((o) => ({ ...o, text: plain(o.text) })), slides: [] };
   if (!doc.summary) problems.push("NO SUMMARY: write 'Summary: ...' at the top of plan.md");
   const tipSlide = {};
@@ -546,7 +466,13 @@ function cmdBuild(args) {
   }
   const out = join(work, 'slides.json');
   writeFileSync(out, JSON.stringify(doc, null, 1));
-  console.log(`Wrote ${out}: ${doc.slides.length} slides, ${doc.open.length} open question(s), ${Object.keys(doc.omitted).length} omitted hunk(s)`);
+  console.log(`Wrote ${out}: ${doc.slides.length} slides, ${doc.open.length} open question(s)`);
+  console.log('');
+  const deck = join(work, 'deck.html');
+  const node = (script, ...rest) => spawnSync(process.execPath, [join(SCRIPTS, script), ...rest], { stdio: 'inherit' }).status === 0;
+  if (!node('build.mjs', '--pr', join(work, 'pr.json'), '--slides', out, '--src', join(work, 'src'), '--out', deck)) process.exit(1);
+  console.log('');
+  process.exit(node('check.mjs', deck, join(work, 'shots')) ? 0 : 1);
 }
 
 // What the investigation must keep: every code hunk raises a question, every question has an answer or an
@@ -597,11 +523,11 @@ function cmdChain(args) {
   process.exit(problems ? 1 : 0);
 }
 
-const USAGE = 'usage: hunks.mjs split --diff pr.diff --out <WORK> | hunks.mjs chain|plan|reader|build|slides --work <WORK>';
+const USAGE = 'usage: hunks.mjs split --diff pr.diff --out <WORK> | hunks.mjs chain|plan|build --work <WORK>';
 
 function main() {
   const [cmd, ...rest] = process.argv.slice(2);
-  const cmds = { split: cmdSplit, chain: cmdChain, plan: cmdPlan, reader: cmdReader, build: cmdBuild, slides: cmdSlides };
+  const cmds = { split: cmdSplit, chain: cmdChain, plan: cmdPlan, build: cmdBuild };
   let values;
   try {
     ({ values } = parseArgs({ args: rest, options: { diff: { type: 'string' }, out: { type: 'string' }, work: { type: 'string' } } }));
