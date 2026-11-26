@@ -84,7 +84,23 @@ The job needs `pull-requests: write` (post the review) and `issues: write`
 | `github-token` | no | `github.token` | Token used to prepare the review inputs (including fetching the merge-base commit, so it needs read access to private repositories) and post the review; its identity is the review author. Pass a bot token to post under a bot identity. |
 | `reference-repos` | no | `''` | Upstream repositories to clone as read-only context, one `owner/repo \| description` per line. |
 | `extra-instructions` | no | `''` | Repository-specific review instructions, appended to the system prompt. |
+| `skip-if-reviewed` | no | `'false'` | Set `'true'` to skip the review when the PR head commit already has a submitted review by the `github-token` identity. See [Skipping a reviewed commit](#skipping-a-reviewed-commit). |
 | `upload-execution-log` | no | `'false'` | Set `'true'` to upload the full execution log as an artifact (world-readable on public repositories). Typically wired to `vars.CLAUDE_DEBUG`. |
+
+## Skipping a reviewed commit
+
+A caller that reviews automatically on several events (e.g. `opened` and
+`ready_for_review`) and also on request would otherwise review the same
+commit again: a draft reviewed on request is reviewed once more when it is
+marked ready. Pass `skip-if-reviewed: 'true'` for the automatic triggers and
+leave it `'false'` for explicit requests, so a requested review always runs:
+
+```yaml
+skip-if-reviewed: ${{ github.event_name == 'pull_request' && github.event.action != 'review_requested' }}
+```
+
+Only a submitted review by the `github-token` identity on the current head
+commit counts; any new commit is reviewed again.
 
 ## Artifacts
 

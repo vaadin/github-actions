@@ -24,6 +24,9 @@
  *   GITHUB_REPOSITORY    owner/repo
  *   GH_TOKEN             token for the gh CLI; its identity is the review
  *                        author
+ *   HEAD_SHA             head commit the review covers, from
+ *                        prepare-review.mjs; the review is posted on it
+ *                        (defaults to the current PR head)
  *   DRY_RUN              if set, print the routing and rendered bodies and
  *                        exit without calling the GitHub API
  *
@@ -217,14 +220,16 @@ const DELETE_PENDING = `mutation($reviewId: ID!) {
   }
 }`;
 
-const ADD_PENDING = `mutation($prId: ID!) {
-  addPullRequestReview(input: {pullRequestId: $prId}) {
+// The review is anchored to the commit that was reviewed, not to the head at
+// posting time: a commit pushed during the review must not look reviewed.
+const ADD_PENDING = `mutation($prId: ID!, $commitOid: GitObjectID!) {
+  addPullRequestReview(input: {pullRequestId: $prId, commitOID: $commitOid}) {
     pullRequestReview { id }
   }
 }`;
 
-const ADD_BODY_ONLY = `mutation($prId: ID!, $body: String!) {
-  addPullRequestReview(input: {pullRequestId: $prId, event: COMMENT, body: $body}) {
+const ADD_BODY_ONLY = `mutation($prId: ID!, $commitOid: GitObjectID!, $body: String!) {
+  addPullRequestReview(input: {pullRequestId: $prId, commitOID: $commitOid, event: COMMENT, body: $body}) {
     pullRequestReview { url author { login } }
   }
 }`;
@@ -313,32 +318,34 @@ function main() {
   const [owner, name] = repo.split('/');
   const pr = graphql(PR_QUERY, { owner, name, number: Number(prNumber) }).repository.pullRequest;
 
+  const headSha = process.env.HEAD_SHA || pr.headRefOid;
+
   for (const stale of pr.reviews.nodes) {
     console.warn(`Deleting stale pending review ${stale.id}`);
     graphql(DELETE_PENDING, { reviewId: stale.id });
   }
 
   if (!findings.length) {
-    const body = summaryBody(repo, pr.headRefOid, [], [], 0);
-    const result = graphql(ADD_BODY_ONLY, { prId: pr.id, body });
+    const body = summaryBody(repo, headSha, [], [], 0);
+    const result = graphql(ADD_BODY_ONLY, { prId: pr.id, commitOid: headSha, body });
     logPosted(result.addPullRequestReview.pullRequestReview);
     return;
   }
 
-  const pending = graphql(ADD_PENDING, { prId: pr.id });
+  const pending = graphql(ADD_PENDING, { prId: pr.id, commitOid: headSha });
   const reviewId = pending.addPullRequestReview.pullRequestReview.id;
 
   const unanchored = [];
   let posted = 0;
   for (const finding of findings) {
-    if (postThread(repo, pr.headRefOid, reviewId, finding)) {
+    if (postThread(repo, headSha, reviewId, finding)) {
       posted += 1;
     } else {
       unanchored.push(finding);
     }
   }
 
-  const body = summaryBody(repo, pr.headRefOid, findings, unanchored, posted);
+  const body = summaryBody(repo, headSha, findings, unanchored, posted);
   const result = graphql(SUBMIT_REVIEW, { reviewId, body });
   logPosted(result.submitPullRequestReview.pullRequestReview);
 }
