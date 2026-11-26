@@ -44,7 +44,7 @@ A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in 
   - `- Suspected bug: <case>`: the code does something wrong in a case you found by reading it. Name the case. It is a finding from reading, not from running the code.
 - Chain: the facts in the order a new reader needs them: how the code works, what was wrong, how each change corrects it. Each fact follows from the facts before it and refers to the questions that prove it. Each code hunk is part of the chain. A hunk that no fact needs is unexplained.
 
-**Questions.** Start from the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. An answer can raise new questions. Ask them too, with the question they come from, `(from Q1)`, even when they lead to unchanged code: the chain needs the code that the change depends on.
+**Questions.** Start from the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. An answer can raise new questions. Ask them too, even when they lead to unchanged code: the chain needs the code that the change depends on.
 
 **Answers.** Read the lines, then write the answer in one to three sentences, with the file and lines that prove it. Do not answer from memory. Do not guess: a question that nothing answers is unexplained. Stop when every question has an answer or is unexplained.
 
