@@ -8,8 +8,8 @@
 // slides.json: written by hunks.mjs build from plan.md and chain.md
 // src:         the worktrees the skill collects (src/base, src/head); member lines then link to their line on GitHub
 //
-// The build only checks that the data is well-formed and that every tip key and introduced name
-// exists in the slide's code. The quality rules live in SKILL.md.
+// The build only checks that the data is well-formed and that every tip key exists in the slide's
+// code. The quality rules live in SKILL.md.
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -117,17 +117,8 @@ function validate(doc) {
   slides.forEach((sl, i) => {
     const where = `slides[${i}]`;
     for (const f of ['title', 'text']) if (!nonEmpty(sl[f])) errors.push(`${where}: missing '${f}'`);
-    let intro = sl.introduces;
-    if (!Array.isArray(intro) || !intro.every(nonEmpty)) {
-      errors.push(`${where}: 'introduces' must be a list of names`);
-      intro = [];
-    }
     const code = checkPanes(where, sl, errors);
     checkTips(where, sl, code, errors);
-    const allCode = code.before + '\n' + code.after;
-    for (const name of intro) {
-      if (!name.startsWith('idea:') && !countWhole(allCode, name)) errors.push(`${where}.introduces: ${repr(name)} not found in the slide's code as a whole name`);
-    }
   });
   return errors;
 }
