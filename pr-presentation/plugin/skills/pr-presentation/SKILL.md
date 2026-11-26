@@ -56,23 +56,19 @@ Write `<WORK>/chain.md` in this format:
 ### Q1 (from H01): Why does the old code set `labelItem.selected = true`?
 - Looked at: src/base/packages/select/src/vaadin-select-base-mixin.js L489-491, src/base/packages/vaadin-lumo-styles/src/components/select-value-button.css L34-37
 - Answer: only the copy of the selected item gets `selected`. The Lumo rule `::slotted(*:not([selected]))` uses this to find the placeholder item.
-- New questions: Q2
 
 ### Q2 (from Q1): What does setting `selected` do on an item?
 - Looked at: src/base/packages/item/src/vaadin-item-mixin.js L30-34, L104-106
 - Answer: `selected` has the observer `_selectedChanged`, which writes `aria-selected`.
-- New questions: none
 
 ### Q3 (from H02): How does `__attachSelectedItem` make the copy?
 - Looked at: src/head/packages/select/src/vaadin-select-base-mixin.js L475-489, L517-526
 - Answer: an item with a `label` attribute gets a new item with that text. Any other item is copied with `cloneNode(true)`, and `__appendValueItemElement` removes `selected`, `aria-selected`, `tabindex` and the focus states from the copy.
 - Suspected bug: a cloned item keeps its `id`. When the application sets an `id` on an item, the page has two elements with that `id`.
-- New questions: none
 
 ### Q4 (from H03): Why does the change remove `aria-selected` from the copy, and not stop `_selectedChanged` from writing it?
 - Looked at: src/base/packages/item/src/vaadin-item-mixin.js L104-106, the linked issue, the history of src/base/packages/select/src/vaadin-select-base-mixin.js L517-526
 - Unexplained: both places would fix the bug. The issue and the history do not tell why the change picks the copy.
-- New questions: none
 
 ## Chain
 
