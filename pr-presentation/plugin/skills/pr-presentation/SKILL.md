@@ -135,7 +135,7 @@ Conditions: when the change touches a condition (a selector, an `if`, a flag che
 
 Text and tips:
 
-- A title of 2 to 5 words and one sentence of about 25 words. Everything else goes in tips.
+- A title of 2 to 5 words and 1-2 sentences of about 25 words. Everything else goes in tips.
 - A tip on each changed line and each new name. Do not write a tip that only tells what a line does.
 - No tips on unchanged lines, except a line the reader would not connect to the change without one. That tip names the changed line it explains.
 - Short sentences, simple words, no em dashes. Many readers are not native speakers of English.
@@ -150,13 +150,13 @@ Omitted: none
 
 ## 1. <title>
 Hunks: none
-Text: one sentence.
+Text: 1-2 sentences.
 After:
 - src/head/<path> L530-549, skip L531-540 (context)
 
 ## 2. <title>
 Hunks: H01, H02
-Text: one sentence.
+Text: 1-2 sentences.
 Before:
 - src/base/<path> L475-492, skip L476-487
 After:
