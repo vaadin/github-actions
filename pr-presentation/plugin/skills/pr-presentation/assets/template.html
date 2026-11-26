@@ -91,11 +91,11 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
 .slide h1 { font-size: var(--fs-h1); line-height: 1.2; text-wrap: balance; margin: 0 0 24px; }
 .slide h2 { font-size: var(--fs-h2); line-height: 1.25; margin: 0; }
 .slide p { margin: 0; }
-/* Prose: the slide sentence, the summary, step texts and review notes */
-.lead, .step-text, .notes { font-size: var(--fs-text); line-height: 1.5; }
+/* Prose: the slide sentence, the summary and review notes */
+.lead, .notes { font-size: var(--fs-text); line-height: 1.5; }
 .lead { color: var(--muted); }
 /* Code in titles and prose: a light chip, so names stand out from the text around them */
-.slide h1 code, .slide h2 code, .lead code, .step-text code, .notes code {
+.slide h1 code, .slide h2 code, .lead code, .notes code {
   font-family: var(--font-code); font-size: .86em; white-space: nowrap; color: var(--fg);
   background: var(--code-bg); padding: .08em .36em; border-radius: 5px;
 }
@@ -108,18 +108,7 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
 
 /* Content slides: heading, one sentence, then the code */
 .concept { height: 100%; display: flex; flex-direction: column; gap: 18px; }
-.concept .head { display: flex; align-items: baseline; gap: 16px; }
 .concept .lead { max-width: 60em; }
-
-/* Bug slides: numbered steps, each a sentence and a few lines of old code */
-.steps { display: flex; flex-direction: column; gap: 4px; max-width: 1100px; }
-.step-row { display: grid; grid-template-columns: 34px 1fr; gap: 14px; align-items: start; }
-.step-num {
-  width: 30px; height: 30px; margin-top: 2px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  background: var(--fg); color: var(--bg); font-weight: 600; font-size: var(--fs-code);
-}
-.step-content { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.step-arrow { color: var(--muted); font-size: var(--fs-text); line-height: 1; padding-left: 7px; }
 
 /* Closing slide: the open questions as a list, each with a link to the slide that holds its tip */
 .notes { display: flex; flex-direction: column; gap: 12px; max-width: 1100px; margin: 0; padding-left: 1.6em; }
@@ -136,11 +125,9 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
 .side.ctx { background: var(--ctx-bg); padding: 12px 16px; gap: 10px; }
 .side.ctx .chunk .lines { font-size: var(--fs-small); opacity: .8; }
 .sides.only-ctx .side.ctx .chunk .lines { font-size: var(--fs-code); opacity: 1; }
-/* The code of a step, with the name of its method as the label */
-.side.step { background: var(--before-bg); padding: 12px 16px; gap: 6px; }
 /* Code pane tags: pills at the right end of the first row (the file path row) that take no height. The pill
    is opaque, so a long first line runs under it instead of through it */
-.side:not(.step) > .label {
+.side > .label {
   position: absolute; top: 15px; right: 18px; z-index: 1; padding: 2px 9px; border-radius: 999px;
   font-weight: 600; line-height: 16px;
 }
@@ -148,15 +135,13 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
 .side.after > .label { background: var(--after-tag); color: var(--after-tag-ink); }
 .side.ctx > .label { top: 11px; right: 16px; background: var(--ctx-tag); color: var(--ctx-tag-ink); }
 
-/* Chunks: a caption row (file path, tag), then the lines */
+/* Chunks: a caption row (file path), then the lines */
 .side > .chunk.new-file { margin-top: 16px; }
 .chunk .cap { font-size: var(--fs-small); color: var(--muted); margin-bottom: 4px; display: flex; gap: 8px; align-items: baseline; }
-/* Small labels: file paths and step methods in code; pane tags and the recap tag in uppercase */
-.chunk .cap .file, .side.step > .label { font-family: var(--font-code); font-size: var(--fs-tiny); color: var(--muted); }
-.side:not(.step) > .label, .chunk .tag { font-size: var(--fs-tiny); letter-spacing: .08em; text-transform: uppercase; }
-.chunk .tag { color: var(--muted); }
+/* Small labels: file paths in code, pane tags in uppercase */
+.chunk .cap .file { font-family: var(--font-code); font-size: var(--fs-tiny); color: var(--muted); }
+.side > .label { font-size: var(--fs-tiny); letter-spacing: .08em; text-transform: uppercase; }
 .chunk .lines { font-variant-ligatures: normal; font-family: var(--font-code); font-size: var(--fs-code); line-height: 1.5; }
-.chunk.recap .lines { opacity: .65; }
 /* A long line wraps only where breakLines allows it, and its next rows are indented two levels deeper */
 .chunk .ln { white-space: pre-wrap; overflow-wrap: break-word; min-height: 1.55em; padding-left: 4ch; text-indent: -4ch; }
 .chunk .ln.blank { min-height: .8em; }
@@ -366,11 +351,11 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
   function alignPanes(left, right, on) {
     var plans = { before: [], after: [] };
     for (var k = 0; on && k < Math.min(left.length, right.length); k++) {
-      var a = left[k], b = right[k], faded = !!(a.context || a.recap);
-      if (faded !== !!(b.context || b.recap)) break;
+      var a = left[k], b = right[k], faded = !!a.context;
+      if (faded !== !!b.context) break;
       var la = withMemberGaps(textLines(a.code)), lb = withMemberGaps(textLines(b.code)), d = diffRows(la, lb);
       if (!d.similar) break;
-      var cap = !!(a.recap || b.recap || a.showFile || b.showFile);
+      var cap = !!(a.showFile || b.showFile);
       // A new file on either side spaces both sides, so the rows stay level
       var newFile = k > 0 && !!(a.showFile || b.showFile);
       // Blank lines and "..." gaps inside a changed block stay unmarked, so the marks show only real code
@@ -507,10 +492,9 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
   var tipTexts = [];
   var NOTE = /^((?:Suspected bug|Unexplained)(?:\s*\([^)]*\))?):\s*([\s\S]*)$/;
   // A side without code is left out, and the other side takes the full width. Unchanged context goes
-  // into a neutral pane of its own below the changed code, so it is never boxed inside a colored pane;
-  // so does code repeated from an earlier slide (recap), which supports the change rather than being it.
+  // into a neutral pane of its own below the changed code, so it is never boxed inside a colored pane.
   // marks: the word marks of the pane's lines (from wordMarks), or null to use the row marks of plans
-  // label: the heading of a step pane (the method of the step), or the corner tag of a code pane
+  // label: the corner tag of the changed-code pane
   function sideEl(cls, label, chunks, tips, plans, marks) {
     if (!chunks.length) return {};
     var raw = Object.keys(tips || {}), base = tipTexts.length;
@@ -521,20 +505,19 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
     chunks.forEach(function (c, k) {
       var plan = plans && plans[k];
       var side;
-      if (c.context || c.recap === true) {
+      if (c.context) {
         if (!ctx) { ctx = el('div', 'side ctx ' + cls); ctx.appendChild(el('div', 'label', 'Context')); }
         side = ctx;
       } else {
-        if (!main) { main = el('div', 'side ' + cls); if (label != null) main.appendChild(el('div', 'label', label)); }
+        if (!main) { main = el('div', 'side ' + cls); main.appendChild(el('div', 'label', label)); }
         side = main;
       }
       // A chunk that starts another file below an earlier chunk gets more space above it
       var newFile = (plan ? plan.newFile : c.showFile) && !!side.querySelector('.chunk');
-      var node = el('div', 'chunk' + (c.recap ? ' recap' : '') + (newFile ? ' new-file' : ''));
-      if (c.recap || c.showFile || (plan && plan.cap)) {
+      var node = el('div', 'chunk' + (newFile ? ' new-file' : ''));
+      if (c.showFile || (plan && plan.cap)) {
         var cap = el('div', 'cap', c.showFile ? null : '\u00a0');
         if (c.showFile) { var f = el('span', 'file', c.file); f.title = c.file; cap.insertBefore(f, cap.firstChild); }
-        if (c.recap) cap.appendChild(el('span', 'tag', c.recap === 'above' ? 'from above' : 'shown earlier'));
         if (plan) cap.dataset.row = k + ':cap';
         node.appendChild(cap);
       }
@@ -592,36 +575,15 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
     ['before', 'after'].forEach(function (side) {
       var one = side === 'before' ? 'beforeTips' : 'afterTips';
       out[side] = { chunks: chunkList(s[side]), tips: Object.assign({}, s.tips, s[one]) };
-      // Step code is old code, so it takes the tips of the Before side
-      if (side === 'before' && s.steps) out[side].tips = Object.assign({}, s.tips, s.beforeTips);
     });
     return out;
-  }
-  // A step list shows what happens in order: a number, one sentence and the few lines of code that do it,
-  // with an arrow to the next step. It shows a bug as it runs, which side-by-side panes cannot.
-  function stepsEl(s, p) {
-    var list = el('div', 'steps');
-    s.steps.forEach(function (step, i) {
-      if (i) list.appendChild(el('div', 'step-arrow', '\u2193'));
-      var row = el('div', 'step-row'), content = el('div', 'step-content');
-      row.appendChild(el('div', 'step-num', String(i + 1)));
-      var t = el('div', 'step-text'); t.innerHTML = prose(step.text); content.appendChild(t);
-      var code = sideEl('step', step.where || '', [{ code: step.code, links: step.links }], p.before.tips, null).main;
-      if (code) content.appendChild(code);
-      row.appendChild(content);
-      list.appendChild(row);
-    });
-    return list;
   }
   function conceptSection(s, p) {
     var sec = el('section', 'slide'), body = el('div', 'concept');
     sec.appendChild(body);
-    var head = el('div', 'head');
-    var h2 = el('h2'); h2.innerHTML = prose(s.title); head.appendChild(h2);
-    body.appendChild(head);
+    var h2 = el('h2'); h2.innerHTML = prose(s.title); body.appendChild(h2);
     var text = s.text;
     if (text) { var lead = el('p', 'lead'); lead.innerHTML = prose(text); body.appendChild(lead); }
-    if (s.steps) { body.appendChild(stepsEl(s, p)); return sec; }
     var sides = el('div', 'sides');
     // Changed code on top, old left and new right; all context of the slide below it, across both columns,
     // the same code shown once. Context never takes a column, so a side with only context leaves the
@@ -660,9 +622,8 @@ html, body { background: var(--bg); color: var(--fg); height: 100%; margin: 0; }
   var KINDS = ['Suspected bug', 'Unexplained'];
   var open = data.open || [];
   if (open.length) {
-    var nsec = el('section', 'slide'), nbody = el('div', 'concept'), nhead = el('div', 'head');
-    nhead.appendChild(el('h2', null, 'Review notes'));
-    nbody.appendChild(nhead);
+    var nsec = el('section', 'slide'), nbody = el('div', 'concept');
+    nbody.appendChild(el('h2', null, 'Review notes'));
     var notes = el('ol', 'notes');
     KINDS.forEach(function (kind) {
       open.filter(function (o) { return o.kind === kind; }).forEach(function (o) {

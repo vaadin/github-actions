@@ -107,13 +107,7 @@ The reader reads the deck alone, in a browser, before the diff. Read `<SKILL>/re
 - Put the slides in the order of the chain. Each slide shows one or more facts and the lines from "Looked at" of their questions.
 - If a slide needs a new fact, add its question and answer to `chain.md` first.
 - Show each review note in a tip on the code it is about, starting with its kind and its questions: `Suspected bug (Q3): ...`, `Unexplained (Q4): ...`. It is not a new thing. The closing slide lists every review note of `chain.md`, also the ones without a tip.
-
-Kinds of slides:
-
-- **Background**: unchanged code the chain needs before the first change, and only the lines the chain uses. All its code is context. Code from a file that the diff does not touch gets a slide of its own only as background.
-- **Bug**: only for a change that fixes wrong behavior. The case that goes wrong as a step list, in the order it runs: what the user or the application does, then what the old code does, until the wrong result. Each step has one sentence and the one to three lines of old code that do it. The slide sentence names the case and the wrong result.
-- **Fix**: right after the bug slide. Only the changed lines. Its sentence tells how the change removes the cause.
-- **Change**: any other change.
+- A background slide shows unchanged code that the chain needs before the first change, and only the lines the chain uses. All its code is context. Code from a file that the diff does not touch gets a slide of its own only as background.
 
 #### Rules
 
@@ -133,7 +127,7 @@ Code:
 - Start each block with its enclosing line: the method signature, the class line, the CSS selector.
 - Show an unchanged line only if it opens a shown block, or the text or a tip mentions it. A one-line change gets a few lines, not a full method.
 - The build drops comment lines from every range.
-- Each piece of code on one slide only. Exception: the fix slide shows the changed lines of the bug slide again.
+- Each piece of code on one slide only.
 - Mark all unchanged code `(context)`, on either side. The page shows it below the changed code.
 - Put old and new versions of the same code at the same chunk position, so the page aligns them and marks the changes. If the two sides are not versions of the same code, set `Align: off`.
 
@@ -161,28 +155,16 @@ Introduces: valueButton, idea: placeholder item
 After:
 - src/head/<path> L530-549, skip L531-540 (context)
 
-## 2. <title of a bug slide>
-Hunks: none
-Text: what went wrong.
-Introduces: ...
-Steps:
-1. The user selects an item, and `__appendValueItemElement` removes `aria-selected` from its copy.
-   - src/base/<path> L523 (in: __appendValueItemElement)
-2. Then `__attachSelectedItem` sets `labelItem.selected = true`.
-   - src/base/<path> L491 (in: __attachSelectedItem)
-3. The observer `_selectedChanged` writes `aria-selected` again, so the copy in the field is read as a selected option.
-   - src/base/<path> L104-106 (in: _selectedChanged)
-
-## 3. <title of a fix slide>
+## 2. <title>
 Hunks: H01, H02
-Text: how the change removes the cause.
+Text: one sentence.
 Introduces: ...
 Before:
 - src/base/<path> L475-492, skip L476-487
 After:
 - src/head/<path> L475-489, skip L476-480
 Tips:
-- `itemElement.removeAttribute('selected');` (after): what this line does against the bug.
+- `itemElement.removeAttribute('selected');` (after): why the change needs this line.
 - `selected.cloneNode(true)` (after): Suspected bug (Q3): the copy keeps the item's `id`, so two elements share it.
 ````
 
