@@ -44,7 +44,7 @@ A hunk is what git made: every `@@` header of `pr.diff` starts one, numbered in 
   - `- Suspected bug: <case>`: the code does something wrong in a case you found by reading it. Name the case. It is a finding from reading, not from running the code.
 - Chain: the facts in the order a new reader needs them: how the code works, what was wrong, how each change corrects it. Each fact follows from the facts before it and refers to the questions that prove it. Each code hunk is part of the chain. A hunk that no fact needs is unexplained.
 
-**Questions.** Start from the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. An answer can raise new questions. Ask them too, even when they lead to unchanged code: the chain needs the code that the change depends on.
+**Questions.** Start from the hunks. Read each hunk and the code around it, and write each question it raises: why did the old code do this, what goes wrong if it stays, where is this name defined, who calls this and when, which cases reach this line, what did the old condition match and what does the new one match. An answer can raise new questions. Ask them too, with the question they come from, `(from Q1)`, even when they lead to unchanged code: the chain needs the code that the change depends on.
 
 **Answers.** Read the lines, then write the answer in one to three sentences, with the file and lines that prove it. Do not answer from memory. Do not guess: a question that nothing answers is unexplained. Stop when every question has an answer or is unexplained.
 
@@ -56,23 +56,19 @@ Write `<WORK>/chain.md` in this format:
 ### Q1 (from H01): Why does the old code set `labelItem.selected = true`?
 - Looked at: src/base/packages/select/src/vaadin-select-base-mixin.js L489-491, src/base/packages/vaadin-lumo-styles/src/components/select-value-button.css L34-37
 - Answer: only the copy of the selected item gets `selected`. The Lumo rule `::slotted(*:not([selected]))` uses this to find the placeholder item.
-- New questions: Q2
 
 ### Q2 (from Q1): What does setting `selected` do on an item?
 - Looked at: src/base/packages/item/src/vaadin-item-mixin.js L30-34, L104-106
 - Answer: `selected` has the observer `_selectedChanged`, which writes `aria-selected`.
-- New questions: none
 
 ### Q3 (from H02): How does `__attachSelectedItem` make the copy?
 - Looked at: src/head/packages/select/src/vaadin-select-base-mixin.js L475-489, L517-526
 - Answer: an item with a `label` attribute gets a new item with that text. Any other item is copied with `cloneNode(true)`, and `__appendValueItemElement` removes `selected`, `aria-selected`, `tabindex` and the focus states from the copy.
 - Suspected bug: a cloned item keeps its `id`. When the application sets an `id` on an item, the page has two elements with that `id`.
-- New questions: none
 
 ### Q4 (from H03): Why does the change remove `aria-selected` from the copy, and not stop `_selectedChanged` from writing it?
 - Looked at: src/base/packages/item/src/vaadin-item-mixin.js L104-106, the linked issue, the history of src/base/packages/select/src/vaadin-select-base-mixin.js L517-526
 - Unexplained: both places would fix the bug. The issue and the history do not tell why the change picks the copy.
-- New questions: none
 
 ## Chain
 
