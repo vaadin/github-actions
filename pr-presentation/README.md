@@ -40,6 +40,7 @@ Deliberately hard-coded, each a one-line edit:
 | Budget cap | `MAX_BUDGET_USD` in [run-presentation.mjs](run-presentation.mjs) | 15 |
 | Session timeout | `SESSION_TIMEOUT_MS` in [run-presentation.mjs](run-presentation.mjs) | 30 min |
 | Claude Code version | Install step in [action.yml](action.yml) | pinned exact |
+| tree-sitter (enclosing lines of a code range) | [scripts/vendor/tree-sitter](plugin/skills/pr-presentation/scripts/vendor/tree-sitter/README.md) | web-tree-sitter 0.25.10, tree-sitter-wasms 0.1.13 |
 
 The reader subagent runs on the `sonnet` alias that the skill asks for, as
 that Claude Code version resolves it. Scripts build the deck from the plan.
