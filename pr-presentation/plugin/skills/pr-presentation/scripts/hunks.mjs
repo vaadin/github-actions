@@ -10,8 +10,8 @@
 //   hunks.mjs plan     --work <WORK>
 //       Checks <WORK>/plan.md: every code hunk ID under "Hunks:" or "Omitted:" with a reason (tests
 //       are not shown), tips of at most 20 words whose keys are in the code of their side, open-question tips that
-//       name an open question of chain.md with the same kind, at most 4 new things per slide, each name in
-//       Introduces in the slide's code, line ranges that start at real code, and each slide estimated to fit one screen.
+//       name an open question of chain.md with the same kind, line ranges that start at real code, and each slide
+//       estimated to fit one screen.
 //       Without problems, it also writes <WORK>/reader/slides/: the deck as the reader sees it (title slide, titles,
 //       sentences, code, tips), without the notes, one numbered file per slide. The reader check of the skill sees
 //       only this folder, one file at a time. A <WORK>/reader/reading.md left by an earlier reader moves to
@@ -130,7 +130,6 @@ function cmdSplit(args) {
 }
 
 const TIP_WORDS = 20;
-const MAX_NEW = 4;
 // Height of one screen in the page's pixels, and the parts of a slide, measured on built decks. The line and
 // text sizes are scaled from those measures to the current fonts: 20px text, 16px code, 14px context code.
 // PANE and CTX_PANE: code panes have no label row
@@ -223,9 +222,6 @@ const planHead = (text) => text.split(/^(?=## )/m)[0];
 // The value of a "Name: value" line in a block of the plan
 const planLine = (block, name) => (block.match(new RegExp(`^${name}:(.*)$`, 'm')) || ['', ''])[1].trim();
 const slideTitle = (slide) => slide.split('\n')[0].replace(/^## \d+\.\s*/, '').trim();
-// The names under Introduces, without backticks and without "none"
-const introduced = (slide) => [...slide.matchAll(/^Introduces:(.*)$/gm)].flatMap((m) => m[1].split(','))
-  .map((i) => i.trim().replace(/^`+|`+$/g, '')).filter((i) => i && i.toLowerCase() !== 'none');
 // The tips of a slide: {key, side, text}
 const slideTips = (slide) => [...slide.matchAll(TIP_RE)].map((m) => ({ key: m[2].trim(), side: m[3], text: m[4].trim() }));
 
@@ -303,12 +299,7 @@ function cmdPlan(args) {
   }
   for (const slide of planSlides(text)) {
     const title = slideTitle(slide);
-    const items = introduced(slide);
-    if (items.length > MAX_NEW) {
-      console.log(`TOO MANY NEW THINGS ${items.length}: ${title}`);
-      problems += 1;
-    }
-    // The slide must fit one screen, its line ranges must start at real code, and its names must be in its code
+    // The slide must fit one screen, and its line ranges must start at real code
     const sides = slideSides(work, slide);
     const textLine = planLine(slide, 'Text');
     const height = slideHeight(textLine, sides);
@@ -326,12 +317,6 @@ function cmdPlan(args) {
       }
     }
     const code = { before: sides[0].flatMap((r) => r.shown || []).join('\n'), after: sides[1].flatMap((r) => r.shown || []).join('\n') };
-    for (const name of items) {
-      if (!name.startsWith('idea:') && !countWhole(code.before + '\n' + code.after, name)) {
-        console.log(`NOT IN CODE \`${name}\` in Introduces: ${title} (use idea: for a concept)`);
-        problems += 1;
-      }
-    }
     for (const t of slideTips(slide)) {
       const n = words(t.text).length;
       if (n > TIP_WORDS) {
@@ -361,7 +346,7 @@ function cmdPlan(args) {
     }
   }
   console.log(`${problems} problem(s): every code hunk on a slide or omitted with a reason, tips at most ${TIP_WORDS} words ` +
-    `with keys in the code, open-question tips from chain.md, at most ${MAX_NEW} new things per slide, names in Introduces in the code, each slide fits one screen`);
+    `with keys in the code, open-question tips from chain.md, each slide fits one screen`);
   if (problems) process.exit(1);
   writeReader(work);
 }
@@ -434,7 +419,7 @@ function cmdBuild(args) {
   planSlides(text).forEach((slide, idx) => {
     const n = idx + 1;
     const title = slideTitle(slide);
-    const out = { title, text: plain(planLine(slide, 'Text')), introduces: introduced(slide) };
+    const out = { title, text: plain(planLine(slide, 'Text')) };
     const sides = slideSides(work, slide);
     for (const r of sides.flat()) {
       if (r.shown === null) problems.push(`NO FILE ${r.path}: ${title}`);

@@ -114,11 +114,11 @@ The reader reads the deck alone, in a browser, before the diff. Read `<SKILL>/re
 Limits, checked by `hunks.mjs plan`:
 
 - A slide fits one screen. If not, make the code smaller or continue on the next slide.
-- A slide has a maximum of 4 new things.
 - A tip has one point and a maximum of 20 words.
 
 One idea per slide:
 
+- A slide has a maximum of 4 new things.
 - Explain each new thing on the slide where it first occurs, and do not use it before that slide.
 - Each slide text is clear on its own. Do not refer to other slides by number, or with "continuing" or "as shown before".
 
@@ -151,14 +151,12 @@ Omitted: none
 ## 1. <title>
 Hunks: none
 Text: 1-2 sentences.
-Introduces: valueButton, idea: placeholder item
 After:
 - src/head/<path> L530-549, skip L531-540 (context)
 
 ## 2. <title>
 Hunks: H01, H02
 Text: 1-2 sentences.
-Introduces: ...
 Before:
 - src/base/<path> L475-492, skip L476-487
 After:
@@ -185,7 +183,7 @@ Then read only the titles and the slide texts in order. They must tell the chain
 The reader knows nothing but the slides: not this skill, not the PR, not the plan or the chain, not that there were earlier rounds.
 
 1. Start a new agent in the foreground (`run_in_background: false`) with `model: "sonnet"`, and wait for its reply. Its prompt is the full text of `<SKILL>/references/reader.md`, with `<REPO>` replaced by `<WORK>/src/head`, `<SLIDES>` by `<WORK>/reader/slides` and `<NOTES>` by `<WORK>/reader/reading.md`. Add nothing else.
-2. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove that term, claim or step from the slide. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. Review note tips stay. Keep the slide rules; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
+2. For each item in `<WORK>/reader/reading.md`: if the slide does not need it to show what was wrong and how the change corrects it, remove that term, claim or step from the slide. Otherwise explain it on the slide where it first occurs, or replace it with a name from the code on that slide. For a Too much item, move new things to another slide. Review note tips stay. Keep the slide rules; if a slide gets too full, continue on the next slide. Run `hunks.mjs plan` until it shows no problems.
 3. Repeat with a new reader agent: do not continue the old one with `SendMessage`. Stop when `reading.md` has no items, or after two corrections.
 
 ### 6. Build
