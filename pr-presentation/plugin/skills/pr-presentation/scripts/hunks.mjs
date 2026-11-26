@@ -27,6 +27,7 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { enclosing } from './enclosing.mjs';
 
 const TEST_RE = /(^|\/)(src\/test\/|test\/|tests\/|__tests__\/|integration-tests\/|test-fixtures?\/)|(Test|IT)\.java$|\.(test|spec)\.[jt]sx?$/;
 const IMAGE_RE = /\.(png|jpe?g|gif|webp|svg)$/i;
@@ -163,7 +164,7 @@ function planRefs(work, block) {
     const b = Number(m[3] || a);
     const tail = m[5];
     const ref = {
-      path, file: repoPath(path), from: a, to: b, lines: null, shown: null,
+      path, file: repoPath(path), from: a, to: b, lines: null, shown: null, first: null, skips: [],
       ctx: tail.includes('(context)'),
     };
     refs.push(ref);
@@ -171,6 +172,7 @@ function planRefs(work, block) {
     if (!isFile(f)) continue;
     const src = read(f).split('\n');
     const skips = [...m[4].matchAll(/skip L(\d+)-(\d+)/g)].map((x) => [Number(x[1]), Number(x[2])]);
+    ref.skips = skips;
     const lines = [];
     let n = a;
     while (n <= b) {
@@ -185,9 +187,38 @@ function planRefs(work, block) {
       }
     }
     ref.lines = lines;
+    ref.first = lines[0];
     ref.shown = shownLines(lines);
   }
+  addHeaders(work, refs);
   return refs;
+}
+
+// A range that starts inside a block gets the lines that open the block above it, with "..." for the lines
+// between, unless a range of the same file on this side already shows them: the class line of a nested class,
+// the signature of a method, the selector of a CSS rule, the start tag of an element in a Lit template.
+function addHeaders(work, refs) {
+  const shownBy = (path, l) => refs.some((r) => r.path === path && l >= r.from && l <= r.to && !r.skips.some(([a, b]) => l >= a && l <= b));
+  const added = new Set();
+  for (const ref of refs) {
+    if (!ref.lines) continue;
+    const src = read(join(work, ref.path));
+    const heads = (enclosing(ref.path, src, ref.from) || []).filter((h) => !shownBy(ref.path, h.from) && !added.has(ref.path + h.from));
+    if (!heads.length) continue;
+    const lines = src.split('\n');
+    const prefix = [];
+    heads.forEach((h, i) => {
+      added.add(ref.path + h.from);
+      prefix.push(...lines.slice(h.from - 1, h.to));
+      const next = i + 1 < heads.length ? heads[i + 1].from : ref.from;
+      if (next > h.to + 1) {
+        const first = lines.slice(h.to, next - 1).find((l) => l.trim()) || lines[next - 1] || '';
+        prefix.push(' '.repeat(indentOf(first)) + '...');
+      }
+    });
+    ref.lines = prefix.concat(ref.lines);
+    ref.shown = shownLines(ref.lines);
+  }
 }
 
 const textHeight = (text) => HEAD + TEXT_LINE * Math.max(1, Math.ceil(text.length / TEXT_CHARS));
@@ -311,8 +342,8 @@ function cmdPlan(args) {
       if (r.lines === null) {
         console.log(`NO FILE ${r.path}: ${title}`);
         problems += 1;
-      } else if (r.lines.length && (!r.lines[0].trim() || COMMENT_START_RE.test(r.lines[0]))) {
-        console.log(`BAD RANGE ${r.path} starts with ${repr(r.lines[0].trim().slice(0, 40))}: ${title} (start at the enclosing line)`);
+      } else if (r.lines.length && (!r.first.trim() || COMMENT_START_RE.test(r.first))) {
+        console.log(`BAD RANGE ${r.path} starts with ${repr(r.first.trim().slice(0, 40))}: ${title} (start at the enclosing line)`);
         problems += 1;
       }
     }

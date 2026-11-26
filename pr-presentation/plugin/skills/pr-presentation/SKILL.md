@@ -124,7 +124,7 @@ One idea per slide:
 
 Code:
 
-- Start each block with its enclosing line: the method signature, the class line, the CSS selector.
+- Start each block with its enclosing line: the method signature, the class line, the CSS selector. The build adds the lines of the blocks around it, such as a nested class or the element of a Lit template.
 - Show an unchanged line only if it opens a shown block, or the text or a tip mentions it. A one-line change gets a few lines, not a full method.
 - The build drops comment lines from every range.
 - Each piece of code on one slide only.
